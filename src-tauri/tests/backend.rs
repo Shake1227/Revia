@@ -3006,7 +3006,11 @@ async fn hidden_scan_root_is_searched_and_hidden_children_are_skipped() {
         std::fs::write(path.join("package.json"), "{}").unwrap();
     }
     for path in [&root, &concealed] {
-        let status = Command::new("attrib").arg("+h").arg(path).status().unwrap();
+        let status = Command::new("attrib")
+            .args(["+h", "+s"])
+            .arg(path)
+            .status()
+            .unwrap();
         assert!(status.success());
     }
     let w = f

@@ -345,6 +345,7 @@ export const ja = {
     chooseProject: "プロジェクトを選ぶ",
     found: (n: number) => (n === 0 ? "プロジェクトは見つかりませんでした" : `${n}件のプロジェクトを追加しました`),
     noneFound: "フォルダは登録しましたが、プロジェクトは見つかりませんでした",
+    searchedAgain: "登録済みのフォルダです。探し直しましたが、新しいプロジェクトはありませんでした",
     noneFoundHint: "Gitのリポジトリか、package.jsonなどの設定ファイルがあるフォルダを探します。深い階層にある場合は、設定で探す深さを増やしてください。",
     added: (name: string) => `${name} を追加しました`,
     depthLabel: "探す深さ",

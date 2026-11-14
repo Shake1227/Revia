@@ -333,6 +333,7 @@ export const en: Messages = {
     chooseProject: "Choose project",
     found: (n: number) => (n === 0 ? "No projects were found" : `Added ${plural(n, "project")}`),
     noneFound: "The folder was added, but no projects were found in it",
+    searchedAgain: "This folder is already added. Revia searched it again and found no new projects",
     noneFoundHint: "Revia looks for Git repositories and folders with files such as package.json. If yours are nested deeper, raise the search depth in Settings.",
     added: (name: string) => `Added ${name}`,
     depthLabel: "Search depth",

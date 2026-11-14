@@ -5,7 +5,8 @@ import { Select } from "../../components/Select";
 import { Spinner } from "../../components/Spinner";
 import { t as messages, useT } from "../../i18n";
 import { api } from "../../ipc/client";
-import type { Project } from "../../ipc/types";
+import { toAppError } from "../../ipc/errors";
+import type { Project, Workspace } from "../../ipc/types";
 import { notifyError } from "../../lib/notify";
 import { baseName } from "../../lib/path";
 import { useAppStore } from "../../stores/app";
@@ -19,11 +20,20 @@ export async function addFolder(maxDepth: number | null = null): Promise<boolean
   const path = await api.pickFolder({ title: m.add.chooseFolder });
   if (!path) return false;
   const before = new Set(useProjectStore.getState().ids);
-  const workspace = await api.addScanRoot({ path, maxDepth });
+  let registered = false;
+  let workspace: Workspace;
+  try {
+    workspace = await api.addScanRoot({ path, maxDepth });
+  } catch (error) {
+    if (toAppError(error).code !== "already_registered") throw error;
+    registered = true;
+    workspace = await api.scanProjects();
+  }
   useAppStore.getState().applyWorkspace(workspace);
   const added = workspace.projects.filter((project) => !before.has(project.id)).length;
-  if (added === 0) toast.warning(m.add.noneFound, { description: m.add.noneFoundHint });
-  else toast.success(m.add.found(added));
+  if (added > 0) toast.success(m.add.found(added));
+  else if (registered) toast.info(m.add.searchedAgain, { description: m.add.noneFoundHint });
+  else toast.warning(m.add.noneFound, { description: m.add.noneFoundHint });
   return true;
 }
 
