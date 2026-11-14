@@ -482,6 +482,10 @@ pub async fn github_status(core: Backend<'_>, refresh: bool) -> Result<Value> {
     core.github_status(refresh).await
 }
 #[tauri::command]
+pub async fn install_github_cli(core: Backend<'_>) -> Result<Value> {
+    core.install_github_cli().await
+}
+#[tauri::command]
 pub async fn github_login_start(core: Backend<'_>, scopes: Option<Vec<String>>) -> Result<Value> {
     core.github_login_start(scopes).await
 }

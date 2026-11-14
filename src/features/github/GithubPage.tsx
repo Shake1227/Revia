@@ -6,6 +6,7 @@ import { EmptyState } from "../../components/EmptyState";
 import { ErrorNote, Note } from "../../components/ErrorNote";
 import { SearchField } from "../../components/Field";
 import { Icons } from "../../components/icons";
+import { InstallCliButton } from "../../components/InstallCliButton";
 import { Menu, MenuContent, MenuItem, MenuLabel, MenuTrigger } from "../../components/Menu";
 import { Segmented } from "../../components/Segmented";
 import { Spinner } from "../../components/Spinner";
@@ -94,10 +95,15 @@ export function GithubPage() {
               </Button>
             ) : (
               <>
-                <code className={clsx(styles.command, "mono selectable")}>{t.connect.install[platform]}</code>
-                <Button loading={statusLoading} onClick={() => void loadStatus(true)}>
-                  {t.connect.recheck}
-                </Button>
+                <InstallCliButton size="lg" />
+                <p className={styles.note}>{t.connect.installNote}</p>
+                <div className={styles.manual}>
+                  <span>{t.connect.manual}</span>
+                  <code className={clsx(styles.command, "mono selectable")}>{t.connect.install[platform]}</code>
+                  <Button size="sm" variant="ghost" loading={statusLoading} onClick={() => void loadStatus(true)}>
+                    {t.connect.recheck}
+                  </Button>
+                </div>
               </>
             )}
           </div>

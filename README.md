@@ -36,7 +36,7 @@ GitHub へのログインは GitHub CLI（`gh`）に任せています。認証�
 | Windows | `-setup.exe` または `.msi` | Windows 10 / 11（x64） |
 | Linux | `.deb`、`.rpm`、`.AppImage` | x86_64 |
 
-Git が必要です。GitHub との連携を使う場合は、GitHub CLI（`gh`）も入れてください。
+Git が必要です。GitHub との連携には GitHub CLI（`gh`）を使います。入っていない場合は、Revia の画面からそのままインストールできます。
 
 動作を確認しているのは macOS 版です。Windows 版と Linux 版は、実機での確認がまだできていません。
 

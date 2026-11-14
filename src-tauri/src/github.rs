@@ -19,6 +19,7 @@ pub(crate) struct GithubState {
     pub status: Option<(Instant, Value)>,
     pub repos: Option<(Instant, Vec<Value>)>,
     pub login: Option<(String, Arc<AtomicBool>)>,
+    pub installing: bool,
 }
 fn installed(core: &Core) -> bool {
     core.options.git.gh.is_absolute() && core.options.git.gh.is_file()

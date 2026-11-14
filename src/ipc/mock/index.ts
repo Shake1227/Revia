@@ -59,14 +59,18 @@ export function createMockApi(): ReviaApi {
   let historyCounter = 2000;
   let operationCounter = 0;
   let loginCounter = 0;
-  let github: GithubStatus = {
-    cliInstalled: true,
-    authenticated: true,
-    account: { login: ACCOUNT, name: "Demo Dev", avatarUrl: null },
-    gitProtocol: "https",
-    missingScopes: [],
-    tokenStorage: "keyring",
-  };
+  const cliMode = new URLSearchParams(window.location.search).get("gh");
+  let github: GithubStatus =
+    cliMode === "missing" || cliMode === "fail"
+      ? { cliInstalled: false, authenticated: false, account: null, gitProtocol: null, missingScopes: [], tokenStorage: null }
+      : {
+          cliInstalled: true,
+          authenticated: true,
+          account: { login: ACCOUNT, name: "Demo Dev", avatarUrl: null },
+          gitProtocol: "https",
+          missingScopes: [],
+          tokenStorage: "keyring",
+        };
   let pendingLogin: { id: string; cancelled: boolean } | null = null;
   let deleteScopeGranted = false;
 
@@ -1436,7 +1440,14 @@ export function createMockApi(): ReviaApi {
       await sleep(180);
       return clone(github);
     },
+    async installGithubCli() {
+      await sleep(1800);
+      if (cliMode === "fail") throw appError("network_unreachable", "Network unreachable");
+      github = { ...github, cliInstalled: true };
+      return clone(github);
+    },
     async githubLoginStart({ scopes }) {
+      if (!github.cliInstalled) throw appError("gh_not_installed", "GitHub CLI not found");
       if (pendingLogin) throw appError("busy", "ログインの手続き中です");
       if (scopes && !github.authenticated) throw appError("not_authenticated", "Not signed in to GitHub");
       if (scopes && (scopes.length !== 1 || scopes[0] !== "delete_repo")) throw appError("invalid_input", "Unsupported scope");

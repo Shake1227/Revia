@@ -1,5 +1,6 @@
 import { t } from "../i18n";
 import { toAppError } from "../ipc/errors";
+import { useGithubStore } from "../stores/github";
 import { toast } from "../stores/toasts";
 
 export function notifyError(error: unknown, subject?: string) {
@@ -8,6 +9,10 @@ export function notifyError(error: unknown, subject?: string) {
   toast.error(subject ? `${subject}: ${text.title}` : text.title, {
     description: text.hint || undefined,
     detail: appError.detail,
+    action:
+      appError.code === "gh_not_installed"
+        ? { label: t().github.connect.installAction, run: () => void useGithubStore.getState().installCli() }
+        : undefined,
   });
   return appError;
 }

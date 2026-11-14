@@ -40,7 +40,10 @@ pub struct Core {
     locks: Mutex<BTreeMap<String, Arc<AsyncMutex<()>>>>,
 }
 impl Core {
-    pub fn new(options: Options) -> Result<Arc<Self>> {
+    pub fn new(mut options: Options) -> Result<Arc<Self>> {
+        if !options.git.gh.is_absolute() {
+            options.git.gh = crate::tools::managed_gh(&options.data_dir);
+        }
         let (settings, recovery) = settings::load(&options.config_dir)?;
         let mut projects: Vec<Value> = std::fs::read(options.cache_dir.join("projects.json"))
             .ok()

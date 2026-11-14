@@ -19,6 +19,7 @@ pub mod removal;
 pub mod settings;
 pub mod status;
 mod system;
+pub mod tools;
 pub mod trash;
 pub mod update;
 use serde_json::Value;
@@ -123,6 +124,7 @@ pub fn run() {
             commands::preview_rebase,
             commands::preview_reset,
             commands::github_status,
+            commands::install_github_cli,
             commands::github_login_start,
             commands::preview_removal,
             commands::check_repository_deletion,

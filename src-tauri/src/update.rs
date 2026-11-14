@@ -74,11 +74,11 @@ fn tool_available(name: &str) -> bool {
     path.is_absolute() && crate::git::executable(&path)
 }
 #[derive(Clone, Deserialize)]
-struct Asset {
-    name: String,
-    size: u64,
-    browser_download_url: String,
-    digest: Option<String>,
+pub struct Asset {
+    pub name: String,
+    pub size: u64,
+    pub browser_download_url: String,
+    pub digest: Option<String>,
 }
 #[derive(Deserialize)]
 struct Release {
@@ -113,7 +113,7 @@ pub fn valid_digest(digest: &str) -> bool {
         .strip_prefix("sha256:")
         .is_some_and(|s| s.len() == 64 && s.bytes().all(|b| b.is_ascii_hexdigit()))
 }
-fn digest(asset: &Asset) -> Option<&str> {
+pub(crate) fn digest(asset: &Asset) -> Option<&str> {
     asset
         .digest
         .as_deref()
@@ -263,21 +263,21 @@ pub fn info_from_release(
     )
     .map(|r| r.0)
 }
-fn client() -> Result<Client> {
+pub(crate) fn client() -> Result<Client> {
     Client::builder()
         .redirect(reqwest::redirect::Policy::none())
         .user_agent(concat!("Revia/", env!("CARGO_PKG_VERSION")))
         .build()
         .map_err(|_| AppError::new("network_unreachable"))
 }
-fn network(e: reqwest::Error) -> AppError {
+pub(crate) fn network(e: reqwest::Error) -> AppError {
     AppError::new(if e.is_timeout() {
         "timeout"
     } else {
         "network_unreachable"
     })
 }
-fn io(e: std::io::Error) -> AppError {
+pub(crate) fn io(e: std::io::Error) -> AppError {
     AppError::new(if e.kind() == std::io::ErrorKind::StorageFull {
         "disk_full"
     } else {
@@ -322,6 +322,93 @@ async fn hash_file(path: &Path) -> Result<(u64, String)> {
         hash.update(&buf[..n]);
     }
     Ok((size, format!("{:x}", hash.finalize())))
+}
+pub(crate) async fn fetch(
+    asset: &Asset,
+    config: &Config,
+    part: &Path,
+    cancel: &mut watch::Receiver<bool>,
+    mut progress: impl FnMut(u64),
+) -> Result<()> {
+    let client = client()?;
+    let mut url =
+        Url::parse(&asset.browser_download_url).map_err(|_| AppError::new("invalid_input"))?;
+    let mut redirects = 0;
+    let mut response = loop {
+        validate_url(&url, config)?;
+        let response = tokio::select! {
+            biased;
+            _ = cancel.changed() => return Err(AppError::new("cancelled")),
+            result = tokio::time::timeout(Duration::from_secs(60), client.get(url.clone()).send()) =>
+                result.map_err(|_| AppError::new("timeout"))?.map_err(network)?,
+        };
+        if response.status().is_redirection() {
+            if redirects == 5 {
+                return Err(AppError::new("invalid_input"));
+            }
+            let location = response
+                .headers()
+                .get(reqwest::header::LOCATION)
+                .and_then(|v| v.to_str().ok())
+                .ok_or_else(|| AppError::new("invalid_input"))?;
+            url = url
+                .join(location)
+                .map_err(|_| AppError::new("invalid_input"))?;
+            redirects += 1;
+        } else {
+            break response;
+        }
+    };
+    if !response.status().is_success() {
+        return Err(AppError::new("unknown").detail(&format!(
+            "Download returned HTTP {}",
+            response.status().as_u16()
+        )));
+    }
+    if regular(part).await? {
+        tokio::fs::remove_file(part).await.map_err(io)?;
+    }
+    let mut options = tokio::fs::OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)]
+    options.mode(0o600);
+    let mut file = options.open(part).await.map_err(io)?;
+    let mut received = 0;
+    let mut hash = Sha256::new();
+    let mut last = Instant::now();
+    let mut last_received = Instant::now();
+    loop {
+        let chunk = tokio::select! {
+            biased;
+            _ = cancel.changed() => return Err(AppError::new("cancelled")),
+            result = tokio::time::timeout(Duration::from_secs(60).saturating_sub(last_received.elapsed()), response.chunk()) =>
+                result.map_err(|_| AppError::new("timeout"))?.map_err(network)?,
+        };
+        let Some(chunk) = chunk else {
+            break;
+        };
+        if chunk.is_empty() {
+            continue;
+        }
+        last_received = Instant::now();
+        received += chunk.len() as u64;
+        if received > LIMIT {
+            return Err(AppError::new("verification_failed"));
+        }
+        hash.update(&chunk);
+        file.write_all(&chunk).await.map_err(io)?;
+        if last.elapsed() >= Duration::from_millis(150) {
+            progress(received);
+            last = Instant::now();
+        }
+    }
+    if received != asset.size
+        || digest(asset).is_some_and(|d| !format!("{:x}", hash.finalize()).eq_ignore_ascii_case(d))
+    {
+        return Err(AppError::new("verification_failed"));
+    }
+    file.flush().await.map_err(io)?;
+    Ok(())
 }
 impl Core {
     pub async fn check_update(&self) -> Result<Value> {
@@ -444,89 +531,13 @@ impl Core {
             false
         };
         if !reuse {
-            let client = client()?;
-            let mut url = Url::parse(&asset.browser_download_url)
-                .map_err(|_| AppError::new("invalid_input"))?;
-            let mut redirects = 0;
-            let mut response = loop {
-                validate_url(&url, config)?;
-                let response = tokio::select! {
-                    biased;
-                    _ = cancel.changed() => return Err(AppError::new("cancelled")),
-                    result = tokio::time::timeout(Duration::from_secs(60), client.get(url.clone()).send()) =>
-                        result.map_err(|_| AppError::new("timeout"))?.map_err(network)?,
-                };
-                if response.status().is_redirection() {
-                    if redirects == 5 {
-                        return Err(AppError::new("invalid_input"));
-                    }
-                    let location = response
-                        .headers()
-                        .get(reqwest::header::LOCATION)
-                        .and_then(|v| v.to_str().ok())
-                        .ok_or_else(|| AppError::new("invalid_input"))?;
-                    url = url
-                        .join(location)
-                        .map_err(|_| AppError::new("invalid_input"))?;
-                    redirects += 1;
-                } else {
-                    break response;
-                }
-            };
-            if !response.status().is_success() {
-                return Err(AppError::new("unknown").detail(&format!(
-                    "Download returned HTTP {}",
-                    response.status().as_u16()
-                )));
-            }
-            if regular(part).await? {
-                tokio::fs::remove_file(part).await.map_err(io)?;
-            }
-            let mut options = tokio::fs::OpenOptions::new();
-            options.write(true).create_new(true);
-            #[cfg(unix)]
-            options.mode(0o600);
-            let mut file = options.open(part).await.map_err(io)?;
-            let mut received = 0;
-            let mut hash = Sha256::new();
-            let mut last = Instant::now();
-            let mut last_received = Instant::now();
-            loop {
-                let chunk = tokio::select! {
-                    biased;
-                    _ = cancel.changed() => return Err(AppError::new("cancelled")),
-                    result = tokio::time::timeout(Duration::from_secs(60).saturating_sub(last_received.elapsed()), response.chunk()) =>
-                        result.map_err(|_| AppError::new("timeout"))?.map_err(network)?,
-                };
-                let Some(chunk) = chunk else {
-                    break;
-                };
-                if chunk.is_empty() {
-                    continue;
-                }
-                last_received = Instant::now();
-                received += chunk.len() as u64;
-                if received > LIMIT {
-                    return Err(AppError::new("verification_failed"));
-                }
-                hash.update(&chunk);
-                file.write_all(&chunk).await.map_err(io)?;
-                if last.elapsed() >= Duration::from_millis(150) {
-                    self.options.events.emit(
-                        "revia:update-progress",
-                        json!({"received":received,"total":asset.size}),
-                    );
-                    last = Instant::now();
-                }
-            }
-            if received != asset.size
-                || digest(asset)
-                    .is_some_and(|d| !format!("{:x}", hash.finalize()).eq_ignore_ascii_case(d))
-            {
-                return Err(AppError::new("verification_failed"));
-            }
-            file.flush().await.map_err(io)?;
-            drop(file);
+            fetch(asset, config, part, cancel, |received| {
+                self.options.events.emit(
+                    "revia:update-progress",
+                    json!({"received":received,"total":asset.size}),
+                );
+            })
+            .await?;
             if exists {
                 tokio::fs::remove_file(&path).await.map_err(io)?;
             }

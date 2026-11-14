@@ -19,8 +19,10 @@ interface GithubStore {
   owners: GithubOwner[] | null;
   login: LoginFlow | null;
   addingScope: boolean;
+  installing: boolean;
 
   loadStatus(refresh?: boolean): Promise<void>;
+  installCli(): Promise<void>;
   loadRepos(refresh?: boolean): Promise<void>;
   loadOwners(): Promise<void>;
   startLogin(scopes?: string[]): Promise<void>;
@@ -38,6 +40,7 @@ export const useGithubStore = create<GithubStore>((set, get) => ({
   owners: null,
   login: null,
   addingScope: false,
+  installing: false,
 
   async loadStatus(refresh = false) {
     set({ statusLoading: true });
@@ -53,6 +56,22 @@ export const useGithubStore = create<GithubStore>((set, get) => ({
       set({ status: { cliInstalled: true, authenticated: false, account: null, gitProtocol: null, missingScopes: [], tokenStorage: null } });
     } finally {
       set({ statusLoading: false });
+    }
+  },
+
+  async installCli() {
+    if (get().installing) return;
+    set({ installing: true });
+    try {
+      const status = await api.installGithubCli();
+      set({ status });
+      if (status.cliInstalled) toast.success(t().github.connect.installed);
+    } catch (error) {
+      const appError = toAppError(error);
+      const text = t().error[appError.code] ?? t().error.unknown;
+      toast.error(t().github.connect.installFailed, { description: text.title, detail: appError.detail });
+    } finally {
+      set({ installing: false });
     }
   },
 

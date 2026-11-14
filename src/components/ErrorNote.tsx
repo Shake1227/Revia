@@ -4,6 +4,7 @@ import { useT } from "../i18n";
 import type { AppError } from "../ipc/types";
 import styles from "./ErrorNote.module.css";
 import { Icons } from "./icons";
+import { InstallCliButton } from "./InstallCliButton";
 
 interface ErrorNoteProps {
   error: AppError;
@@ -17,6 +18,7 @@ export function ErrorNote({ error, actions, compact, className }: ErrorNoteProps
   const [open, setOpen] = useState(false);
   const text = m.error[error.code] ?? m.error.unknown;
   const hint = text.hint;
+  const fix = error.code === "gh_not_installed" ? <InstallCliButton variant="secondary" size="sm" /> : null;
   return (
     <div className={clsx(styles.note, compact && styles.compact, className)} role="alert">
       <Icons.circleAlert size={15} className={styles.icon} />
@@ -24,8 +26,9 @@ export function ErrorNote({ error, actions, compact, className }: ErrorNoteProps
         <p className={styles.title}>{text.title}</p>
         {hint && <p className={styles.hint}>{hint}</p>}
         {error.detail && open && <pre className={`${styles.detail} selectable mono`}>{error.detail}</pre>}
-        {(actions || error.detail) && (
+        {(fix || actions || error.detail) && (
           <div className={styles.actions}>
+            {fix}
             {actions}
             {error.detail && (
               <button type="button" className={styles.link} onClick={() => setOpen((value) => !value)}>

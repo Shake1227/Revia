@@ -86,9 +86,12 @@ export function LoginDialog({ open, onClose }: { open: boolean; onClose: () => v
       {cliMissing ? (
         <div className={styles.form}>
           <ErrorNote error={{ code: "gh_not_installed", message: "", detail: null }} />
-          <p className={styles.hint}>{m.github.connect.cliMissingBody}</p>
+          <p className={styles.hint}>{m.github.connect.installNote}</p>
+          <p className={styles.hint}>{m.github.connect.manual}</p>
           <code className={`${styles.command} selectable`}>{m.github.connect.install[platform]}</code>
-          <Button onClick={() => void loadStatus(true)}>{m.github.connect.recheck}</Button>
+          <Button variant="ghost" onClick={() => void loadStatus(true)}>
+            {m.github.connect.recheck}
+          </Button>
         </div>
       ) : (
         <LoginProgress onRetry={() => void startLogin()} />

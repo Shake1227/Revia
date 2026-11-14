@@ -121,6 +121,7 @@ export interface ReviaApi {
   stashDrop(args: { projectId: string; stashSha: string }): Promise<ProjectDetail>;
 
   githubStatus(args: { refresh: boolean }): Promise<GithubStatus>;
+  installGithubCli(): Promise<GithubStatus>;
   githubLoginStart(args: { scopes: string[] | null }): Promise<{ loginId: string }>;
   githubLoginCancel(args: { loginId: string }): Promise<void>;
   githubLogout(): Promise<GithubStatus>;
