@@ -305,17 +305,6 @@ async fn store_token(core: &Core, token: Secret) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde_json::Value;
-    use std::sync::{Arc, Mutex};
-    #[derive(Default)]
-    struct Events(Mutex<Vec<Value>>);
-    impl crate::EventSink for Events {
-        fn emit(&self, name: &str, payload: Value) {
-            if name == "revia:github-login" {
-                self.0.lock().unwrap().push(payload);
-            }
-        }
-    }
     #[test]
     fn defaults_forms_and_url_policy() {
         let mut config = Config::default();
@@ -343,11 +332,22 @@ mod tests {
     #[cfg(unix)]
     mod local {
         use super::*;
+        use serde_json::Value;
         use std::{
             io::{Read, Write},
             net::TcpListener,
             os::unix::fs::PermissionsExt,
+            sync::{Arc, Mutex},
         };
+        #[derive(Default)]
+        struct Events(Mutex<Vec<Value>>);
+        impl crate::EventSink for Events {
+            fn emit(&self, name: &str, payload: Value) {
+                if name == "revia:github-login" {
+                    self.0.lock().unwrap().push(payload);
+                }
+            }
+        }
         struct Server {
             url: String,
             requests: Arc<Mutex<Vec<String>>>,

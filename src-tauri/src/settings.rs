@@ -1,12 +1,7 @@
 use crate::error::{AppError, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
-use std::{
-    collections::BTreeMap,
-    fs::{self, File},
-    io::Write,
-    path::Path,
-};
+use std::{collections::BTreeMap, fs, io::Write, path::Path};
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct Settings {
@@ -260,7 +255,7 @@ pub fn atomic(dir: &Path, name: &str, bytes: &[u8]) -> Result<()> {
         drop(f);
         fs::rename(&temp, dir.join(name))?;
         #[cfg(unix)]
-        File::open(dir)?.sync_all()?;
+        fs::File::open(dir)?.sync_all()?;
         Ok(())
     })();
     if result.is_err() {

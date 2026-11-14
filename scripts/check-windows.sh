@@ -22,5 +22,5 @@ done
 exit 0
 RC
 chmod +x "$tools/llvm-rc"
-PATH="$tools:$PATH" cargo check --locked --manifest-path "$root/src-tauri/Cargo.toml" --target "$target" --lib
+PATH="$tools:$PATH" cargo clippy --locked --manifest-path "$root/src-tauri/Cargo.toml" --target "$target" --all-targets -- -D warnings
 echo "Windows 向けの型検査: 成功"
