@@ -195,7 +195,7 @@
 
 .path {
   max-width: 320px;
-  font-size: 11.5px;
+  font-size: var(--text-xs);
   color: var(--text-2);
   border-radius: 4px;
   transition: color var(--dur-2) var(--ease-out);

@@ -50,7 +50,7 @@
   align-items: center;
   border-radius: var(--radius-full);
   background: var(--surface-2);
-  font-size: 11.5px;
+  font-size: var(--text-xs);
   color: var(--text-2);
 }
 
@@ -87,7 +87,7 @@
 }
 
 .path {
-  font-size: 12.5px;
+  font-size: var(--text-sm);
   color: var(--text-1);
 }
 

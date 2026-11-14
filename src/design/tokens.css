@@ -67,6 +67,15 @@
   --col-action: 138px;
 }
 
+@media (max-resolution: 1.49dppx) {
+  :root {
+    --text-2xs: 11px;
+    --text-xs: 12px;
+    --text-sm: 13px;
+    --text-md: 14px;
+  }
+}
+
 :root[data-typeface="mplus"] {
   --font-sans: "M PLUS 2 Variable", var(--font-system);
   --font-mono: "IBM Plex Mono", "M PLUS 2 Variable", var(--font-system-mono);
