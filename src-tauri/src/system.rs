@@ -14,13 +14,16 @@ pub async fn pick(app: tauri::AppHandle, title: Option<String>) -> Result<Option
         dialog = dialog.set_title(title);
     }
     dialog.pick_folder(move |p| {
-        let _ = tx.send(
-            p.and_then(|p| p.into_path().ok())
-                .and_then(|p| crate::platform::canonicalize(p).ok())
-                .map(|p| p.to_string_lossy().into_owned()),
-        );
+        let _ = tx.send(p.map(|p| {
+            p.into_path()
+                .map(|p| crate::platform::resolve(p).to_string_lossy().into_owned())
+        }));
     });
-    rx.await.map_err(|_| AppError::new("io_error"))
+    match rx.await.map_err(|_| AppError::new("io_error"))? {
+        None => Ok(None),
+        Some(Ok(path)) => Ok(Some(path)),
+        Some(Err(_)) => Err(AppError::new("invalid_path")),
+    }
 }
 pub fn open_url(app: &tauri::AppHandle, url: &str) -> Result<()> {
     if !allowed_url(url) {

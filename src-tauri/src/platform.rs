@@ -38,6 +38,12 @@ pub fn normalize(path: &Path) -> PathBuf {
 pub fn canonicalize(path: impl AsRef<Path>) -> std::io::Result<PathBuf> {
     std::fs::canonicalize(path).map(|p| normalize(&p))
 }
+pub fn resolve(path: impl AsRef<Path>) -> PathBuf {
+    let path = path.as_ref();
+    canonicalize(path)
+        .or_else(|_| std::path::absolute(path).map(|p| normalize(&p)))
+        .unwrap_or_else(|_| normalize(path))
+}
 pub fn home() -> Option<PathBuf> {
     #[cfg(windows)]
     let key = "USERPROFILE";
@@ -69,6 +75,16 @@ mod tests {
         }
         let error = std::io::Error::from(std::io::ErrorKind::InvalidInput);
         assert_eq!(crate::error::AppError::from(error).code, "invalid_input");
+    }
+    #[test]
+    fn resolve_keeps_working_where_canonicalize_fails() {
+        let dir = tempfile::tempdir().unwrap();
+        assert_eq!(resolve(dir.path()), canonicalize(dir.path()).unwrap());
+        let missing = dir.path().join("missing").join("child");
+        assert!(canonicalize(&missing).is_err());
+        let resolved = resolve(&missing);
+        assert!(resolved.is_absolute());
+        assert!(resolved.ends_with(Path::new("missing").join("child")));
     }
     #[test]
     fn verbatim_paths() {

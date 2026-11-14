@@ -21,7 +21,9 @@ export async function addFolder(maxDepth: number | null = null): Promise<boolean
   const before = new Set(useProjectStore.getState().ids);
   const workspace = await api.addScanRoot({ path, maxDepth });
   useAppStore.getState().applyWorkspace(workspace);
-  toast.success(m.add.found(workspace.projects.filter((project) => !before.has(project.id)).length));
+  const added = workspace.projects.filter((project) => !before.has(project.id)).length;
+  if (added === 0) toast.warning(m.add.noneFound, { description: m.add.noneFoundHint });
+  else toast.success(m.add.found(added));
   return true;
 }
 

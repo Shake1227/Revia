@@ -21,7 +21,7 @@ pub fn directory(path: &str) -> Result<PathBuf> {
     if !p.is_absolute() || !p.is_dir() {
         return Err(AppError::new("invalid_path"));
     }
-    Ok(crate::platform::canonicalize(p)?)
+    Ok(crate::platform::resolve(p))
 }
 pub fn markers(path: &Path) -> Vec<String> {
     if path.join(".git").exists() {
@@ -140,7 +140,7 @@ fn walk(
     found_start: usize,
 ) {
     if fs::symlink_metadata(path).map_or(true, |m| m.file_type().is_symlink() || !m.is_dir())
-        || hidden(path)
+        || (depth > 0 && hidden(path))
         || excluded(path, s)
     {
         return;

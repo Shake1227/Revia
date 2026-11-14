@@ -332,6 +332,8 @@ export const en: Messages = {
     singleBody: "Add a folder directly, even if it does not look like a project.",
     chooseProject: "Choose project",
     found: (n: number) => (n === 0 ? "No projects were found" : `Added ${plural(n, "project")}`),
+    noneFound: "The folder was added, but no projects were found in it",
+    noneFoundHint: "Revia looks for Git repositories and folders with files such as package.json. If yours are nested deeper, raise the search depth in Settings.",
     added: (name: string) => `Added ${name}`,
     depthLabel: "Search depth",
     depthHint: (n: number) => `${plural(n, "level")} deep`,    publishTitle: "Publish a folder to GitHub",

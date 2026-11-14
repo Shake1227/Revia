@@ -2997,6 +2997,34 @@ fn saved_verbatim_paths_remain_compatible() {
 
 #[cfg(windows)]
 #[tokio::test]
+async fn hidden_scan_root_is_searched_and_hidden_children_are_skipped() {
+    let f = Fixture::new();
+    let root = f.dir("hidden-root");
+    let concealed = root.join("concealed");
+    for path in [root.join("shown"), concealed.clone()] {
+        std::fs::create_dir_all(&path).unwrap();
+        std::fs::write(path.join("package.json"), "{}").unwrap();
+    }
+    for path in [&root, &concealed] {
+        let status = Command::new("attrib").arg("+h").arg(path).status().unwrap();
+        assert!(status.success());
+    }
+    let w = f
+        .core
+        .registry_change("add_root", json!(root), Value::Null)
+        .await
+        .unwrap();
+    let names = w["projects"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|p| p["name"].as_str().unwrap())
+        .collect::<Vec<_>>();
+    assert_eq!(names, ["shown"]);
+}
+
+#[cfg(windows)]
+#[tokio::test]
 async fn windows_batch_command_preserves_spaced_arguments() {
     let dir = tempfile::tempdir().unwrap();
     let script = dir.path().join("mock tool.cmd");

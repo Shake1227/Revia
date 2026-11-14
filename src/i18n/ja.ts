@@ -344,6 +344,8 @@ export const ja = {
     singleBody: "検出の条件に合わないフォルダも、直接指定すれば追加できます。",
     chooseProject: "プロジェクトを選ぶ",
     found: (n: number) => (n === 0 ? "プロジェクトは見つかりませんでした" : `${n}件のプロジェクトを追加しました`),
+    noneFound: "フォルダは登録しましたが、プロジェクトは見つかりませんでした",
+    noneFoundHint: "Gitのリポジトリか、package.jsonなどの設定ファイルがあるフォルダを探します。深い階層にある場合は、設定で探す深さを増やしてください。",
     added: (name: string) => `${name} を追加しました`,
     depthLabel: "探す深さ",
     depthHint: (n: number) => `${n}階層下まで`,
