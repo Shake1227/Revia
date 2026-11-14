@@ -732,7 +732,6 @@ mod safety_tests {
     #[cfg(unix)]
     #[tokio::test]
     async fn explicit_write_deadline_and_term() {
-        use std::os::unix::fs::PermissionsExt;
         let dir = tempfile::tempdir().unwrap();
         let script = dir.path().join("git");
         std::fs::write(
@@ -740,7 +739,7 @@ mod safety_tests {
             "#!/bin/sh\ntrap 'echo terminated > \"$MARKER\"; exit 0' TERM\nwhile :; do :; done\n",
         )
         .unwrap();
-        std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o700)).unwrap();
+        crate::platform::executable_for_test(&script, 0o700);
         let mut git = Git {
             executable: script,
             ..Git::default()

@@ -1,3 +1,5 @@
+#[cfg(unix)]
+mod common;
 use revia_lib::{
     NoEvents,
     core::{Core, Options},
@@ -771,11 +773,10 @@ async fn partial_commit_keeps_other_index_and_worktree_versions() {
 
 #[cfg(unix)]
 fn mocked_git(f: &Fixture, body: &str) -> Git {
-    use std::os::unix::fs::PermissionsExt;
     let script = f.temp.path().join("mock-git");
     let real = f.git.executable.to_string_lossy().replace('\'', "'\\''");
     std::fs::write(&script,format!("#!/bin/sh\nfor arg do\nif [ \"$arg\" = fetch ]; then\n{body}\nfi\ndone\nexec '{real}' \"$@\"\n")).unwrap();
-    std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o700)).unwrap();
+    common::executable(&script, 0o700);
     let mut git = f.git.clone();
     git.executable = script;
     git
@@ -1851,7 +1852,6 @@ async fn checkout_failure_restores_stash_and_carry_changes() {
 #[cfg(unix)]
 #[tokio::test]
 async fn refresh_and_plan_are_bounded_parallel_and_status_is_light() {
-    use std::os::unix::fs::PermissionsExt;
     let f = Fixture::new();
     let mut ids = vec![];
     for i in 0..12 {
@@ -1861,7 +1861,7 @@ async fn refresh_and_plan_are_bounded_parallel_and_status_is_light() {
     let trace = f.temp.path().join("trace");
     let script = f.temp.path().join("parallel-git");
     std::fs::write(&script,format!("#!/bin/sh\nprintf 'call\\n' >> '{}'\nfor arg do\nif [ \"$arg\" = status ]; then\nprintf 'start\\n' >> '{}'\nsleep 0.2\nprintf 'end\\n' >> '{}'\nfi\ndone\nexec '{}' \"$@\"\n",trace.display(),trace.display(),trace.display(),f.git.executable.display())).unwrap();
-    std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o700)).unwrap();
+    common::executable(&script, 0o700);
     let mut git = f.git.clone();
     git.executable = script;
     let core = Fixture::core(f.temp.path(), git);
@@ -2053,7 +2053,6 @@ async fn preview_warnings_for_published_rebase_force_push_and_conflicting_pull()
 #[cfg(unix)]
 #[tokio::test]
 async fn unavailable_merge_tree_is_unknown_and_large_conflict_is_conservative() {
-    use std::os::unix::fs::PermissionsExt;
     let f = Fixture::new();
     let p = f.repo("repo");
     let id = f.add(&p).await;
@@ -2063,7 +2062,7 @@ async fn unavailable_merge_tree_is_unknown_and_large_conflict_is_conservative() 
     f.write_commit(&p, "base.txt", "main");
     let script = f.temp.path().join("old-git");
     std::fs::write(&script,format!("#!/bin/sh\nfor arg do\nif [ \"$arg\" = merge-tree ]; then exit 129; fi\ndone\nexec '{}' \"$@\"\n",f.git.executable.display())).unwrap();
-    std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o700)).unwrap();
+    common::executable(&script, 0o700);
     let mut git = f.git.clone();
     git.executable = script;
     let core = Fixture::core(f.temp.path(), git);
@@ -2103,7 +2102,7 @@ async fn history_counts_only_actual_committed_files() {
 #[cfg(unix)]
 mod github_publish_clone {
     use super::*;
-    use std::{os::unix::fs::PermissionsExt, sync::Mutex, time::Duration};
+    use std::{sync::Mutex, time::Duration};
     #[derive(Default)]
     struct Events(Mutex<Vec<(String, Value)>>);
     impl revia_lib::EventSink for Events {
@@ -2152,7 +2151,7 @@ case "$1 $2" in
 *) echo unexpected >&2; exit 1 ;;
 esac
 "#).unwrap();
-            std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+            common::executable(&script, 0o755);
             f.git.gh = script;
             f.git
                 .env
@@ -2632,7 +2631,7 @@ esac
             "#!/bin/sh\nprintf 'Receiving objects: 25%% (1/4)\\r' >&2\nexec /bin/sleep 30\n",
         )
         .unwrap();
-        std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+        common::executable(&script, 0o755);
         g.f.git.executable = script;
         g.f.core = Fixture::core(g.f.temp.path(), g.f.git.clone());
         let s=g.f.core.start(json!({"kind":"clone","items":[{"itemId":"clone","url":"https://github.com/mock/demo","parentDir":parent,"folderName":"cancelled"}]})).await.unwrap();
@@ -3379,7 +3378,7 @@ mod removal {
 mod removal_gh {
     use super::*;
     use revia_lib::EventSink;
-    use std::{os::unix::fs::PermissionsExt, sync::Mutex};
+    use std::sync::Mutex;
     #[derive(Default)]
     struct Events(Mutex<Vec<(String, Value)>>);
     impl revia_lib::EventSink for Events {
@@ -3445,7 +3444,7 @@ case "$1 $2" in
 *) echo 'unexpected mock command' >&2; exit 1 ;;
 esac
 "#).unwrap();
-        std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+        common::executable(&script, 0o755);
         std::fs::write(f.temp.path().join("scenario"), scenario).unwrap();
         f.git.gh = if scenario == "no-gh" {
             f.temp.path().join("absent-gh")
@@ -3618,7 +3617,7 @@ exec "$REAL_GIT" "$@"
 "#,
         )
         .unwrap();
-        std::fs::set_permissions(&wrapper, std::fs::Permissions::from_mode(0o755)).unwrap();
+        common::executable(&wrapper, 0o755);
         let calls = f.temp.path().join("git-calls");
         f.git
             .env
@@ -3726,13 +3725,12 @@ exec "$REAL_GIT" "$@"
 #[cfg(unix)]
 #[tokio::test]
 async fn fsmonitor_is_disabled_for_repository_reads() {
-    use std::os::unix::fs::PermissionsExt;
     let f = Fixture::new();
     let p = f.repo("repo");
     let hook = f.temp.path().join("monitor");
     let marker = f.temp.path().join("monitor-ran");
     std::fs::write(&hook, "#!/bin/sh\ntouch \"$MONITOR_MARKER\"\n").unwrap();
-    std::fs::set_permissions(&hook, std::fs::Permissions::from_mode(0o700)).unwrap();
+    common::executable(&hook, 0o700);
     f.run(&p, &["config", "core.fsmonitor", hook.to_str().unwrap()]);
     let mut git = f.git.clone();
     git.env.insert(
@@ -3881,7 +3879,6 @@ async fn clean_checkout_failure_preserves_existing_stash() {
 
 #[cfg(unix)]
 fn fetch_wrapper(f: &Fixture, mode: &str) -> Git {
-    use std::os::unix::fs::PermissionsExt;
     let wrapper = f.temp.path().join("wrapped-git");
     std::fs::write(
         &wrapper,
@@ -3905,7 +3902,7 @@ exit "$result"
 "#,
     )
     .unwrap();
-    std::fs::set_permissions(&wrapper, std::fs::Permissions::from_mode(0o700)).unwrap();
+    common::executable(&wrapper, 0o700);
     let mut git = f.git.clone();
     git.env.insert(
         "REAL_GIT".into(),
@@ -3966,7 +3963,6 @@ async fn rejected_push_fetch_failure_keeps_original_error() {
 #[cfg(unix)]
 #[tokio::test]
 async fn checkout_noop_stash_does_not_restore_previous_stash() {
-    use std::os::unix::fs::PermissionsExt;
     let mut f = Fixture::new();
     let p = f.repo("repo");
     std::fs::write(p.join("base.txt"), "old stash").unwrap();
@@ -3997,7 +3993,7 @@ exec "$REAL_GIT" "$@"
 "#,
     )
     .unwrap();
-    std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o700)).unwrap();
+    common::executable(&script, 0o700);
     git.env.insert(
         "REAL_GIT".into(),
         git.executable.to_string_lossy().into_owned(),

@@ -1,3 +1,5 @@
+#[cfg(unix)]
+mod common;
 use revia_lib::{
     core::{Core, Options},
     git::Git,
@@ -339,7 +341,7 @@ mod unix {
         let temp = tempfile::tempdir().unwrap();
         let existing = temp.path().join("gh");
         std::fs::write(&existing, SCRIPT).unwrap();
-        std::fs::set_permissions(&existing, std::fs::Permissions::from_mode(0o755)).unwrap();
+        common::executable(&existing, 0o755);
         let (data, core) = core(existing);
         let idle = Server::new(vec![]);
         let status = core

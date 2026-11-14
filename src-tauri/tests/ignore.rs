@@ -1,3 +1,5 @@
+#[cfg(unix)]
+mod common;
 use revia_lib::{
     git::Git,
     ignore::{classify_content, classify_path, path_pattern, scan},
@@ -294,7 +296,7 @@ async fn scan_entry_and_byte_limits_and_example_cap() {
 #[cfg(unix)]
 #[tokio::test]
 async fn scan_deadline_and_symlinks() {
-    use std::os::unix::fs::{PermissionsExt, symlink};
+    use std::os::unix::fs::symlink;
     let g = git();
     let t = tempfile::tempdir().unwrap();
     let outside = tempfile::tempdir().unwrap();
@@ -309,7 +311,7 @@ async fn scan_deadline_and_symlinks() {
     );
     let script = outside.path().join("slow-git");
     std::fs::write(&script, "#!/bin/sh\nexec /bin/sleep 10\n").unwrap();
-    std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+    common::executable(&script, 0o755);
     let mut slow = g;
     slow.executable = script;
     let started = std::time::Instant::now();

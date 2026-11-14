@@ -336,7 +336,6 @@ mod tests {
         use std::{
             io::{Read, Write},
             net::TcpListener,
-            os::unix::fs::PermissionsExt,
             sync::{Arc, Mutex},
         };
         #[derive(Default)]
@@ -462,7 +461,7 @@ case "$1 $2" in
 *) exit 44 ;;
 esac
 "#).unwrap();
-            std::fs::set_permissions(&gh, std::fs::Permissions::from_mode(0o755)).unwrap();
+            crate::platform::executable_for_test(&gh, 0o755);
             let events = Arc::new(Events::default());
             let mut git = crate::git::Git {
                 gh,

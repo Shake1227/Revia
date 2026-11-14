@@ -64,6 +64,20 @@ pub fn command(program: impl AsRef<std::ffi::OsStr>) -> tokio::process::Command 
         tokio::process::Command::new(program)
     }
 }
+#[cfg(all(test, unix))]
+pub(crate) fn executable_for_test(script: &Path, mode: u32) {
+    use std::os::unix::fs::PermissionsExt;
+    let staged = script.with_extension("staged");
+    std::fs::rename(script, &staged).unwrap();
+    let copied = std::process::Command::new("/bin/cp")
+        .arg(&staged)
+        .arg(script)
+        .status()
+        .unwrap();
+    assert!(copied.success());
+    std::fs::remove_file(&staged).unwrap();
+    std::fs::set_permissions(script, std::fs::Permissions::from_mode(mode)).unwrap();
+}
 #[cfg(test)]
 mod tests {
     use super::*;
