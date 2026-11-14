@@ -190,6 +190,9 @@ async fn escaped_patterns_ignore_only_literal_files() {
         "space file ",
         "日本語/顧客.csv",
     ] {
+        if cfg!(windows) && (path.contains(['*', '?']) || path.ends_with(' ')) {
+            continue;
+        }
         write(t.path(), path, "");
         write(t.path(), "control.txt", "");
         write(
