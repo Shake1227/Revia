@@ -9,6 +9,8 @@ from PIL import Image, ImageChops, ImageDraw, ImageEnhance, ImageFilter
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 PLATES = ROOT / "src" / "assets" / "backdrop"
 OUT = ROOT / "src-tauri" / "icons" / "source" / "app-icon.png"
+FULL = OUT.with_name("app-icon-full.png")
+BLEED = 12
 
 HOUR = 21.0
 HOUR_ID = "2100"
@@ -308,31 +310,41 @@ def main():
     parser.add_argument("--style", choices=["stylized", "realistic"], default="stylized")
     style = parser.parse_args().style
     body = rounded(0)
-    icon = Image.new("RGBA", (SIZE, SIZE), (0, 0, 0, 0))
+    blank = (0, 0, 0, 0)
 
-    shadow = ImageChops.offset(body, 0, 14).filter(ImageFilter.GaussianBlur(18))
-    icon.alpha_composite(tinted(Image.new("RGBA", (SIZE, SIZE), (0, 0, 0, 255)), shadow, 0.34))
-
-    plate = Image.new("RGBA", (SIZE, SIZE), (0, 0, 0, 0))
+    plate = Image.new("RGBA", (SIZE, SIZE), blank)
     plate.paste(stylized_art() if style == "stylized" else realistic_art(), (INSET, INSET))
     plate.putalpha(body)
-    icon.alpha_composite(plate)
 
     ring = ImageChops.subtract(body, rounded(6))
     fall = np.interp(np.linspace(0, 1, SIZE), [0, INSET / SIZE, 0.42, 1 - INSET / SIZE, 1], [0.34, 0.34, 0.07, 0.03, 0.03])
     edge = np.asarray(ring, dtype=np.float32) * fall[:, None]
-    icon.alpha_composite(tinted(Image.new("RGBA", (SIZE, SIZE), (255, 255, 255, 255)), Image.fromarray(np.uint8(edge))))
 
     bed = stroke(7.4).filter(ImageFilter.GaussianBlur(30))
     bed = Image.composite(bed, Image.new("L", (SIZE, SIZE), 0), body)
-    icon.alpha_composite(tinted(Image.new("RGBA", (SIZE, SIZE), (8, 10, 26, 255)), bed, 0.5))
     glow = stroke(5.8).filter(ImageFilter.GaussianBlur(MARK_SCALE * 2.3))
-    icon.alpha_composite(tinted(gradient(HALO), glow, 0.78))
-    icon.alpha_composite(tinted(gradient(INK), stroke(4.4)))
+    layers = [
+        plate,
+        tinted(Image.new("RGBA", (SIZE, SIZE), (255, 255, 255, 255)), Image.fromarray(np.uint8(edge))),
+        tinted(Image.new("RGBA", (SIZE, SIZE), (8, 10, 26, 255)), bed, 0.5),
+        tinted(gradient(HALO), glow, 0.78),
+        tinted(gradient(INK), stroke(4.4)),
+    ]
+
+    shadow = ImageChops.offset(body, 0, 14).filter(ImageFilter.GaussianBlur(18))
+    icon = Image.new("RGBA", (SIZE, SIZE), blank)
+    icon.alpha_composite(tinted(Image.new("RGBA", (SIZE, SIZE), (0, 0, 0, 255)), shadow, 0.34))
+    full = Image.new("RGBA", (SIZE, SIZE), blank)
+    for layer in layers:
+        icon.alpha_composite(layer)
+        full.alpha_composite(layer)
 
     OUT.parent.mkdir(parents=True, exist_ok=True)
     icon.save(OUT, optimize=True)
     print(OUT)
+    near = INSET - BLEED
+    full.crop((near, near, SIZE - near, SIZE - near)).resize((SIZE, SIZE), Image.LANCZOS).save(FULL, optimize=True)
+    print(FULL)
 
 if __name__ == "__main__":
     main()

@@ -18,7 +18,8 @@
 - **構成** 左に浮かぶドック（画面の切り替えと、お気に入りへの近道）、上部中央にコマンドバー、本文はシート。枠で囲むのではなく、余白・文字の大きさ・色で重みを付ける。
 - **文字** 既定は IBM Plex Sans JP（英数字も同じ書体）、コードやパスは IBM Plex Mono。画面のタイトルと件数の数字も同じ書体で、太さと大きさで差を付ける（明朝体は使わない）。設定で M PLUS 2 か OS の書体に切り替えられる。IBM Plex と M PLUS 2 はアプリに同梱し、OS による見た目の差をなくす。
 - **動き** 画面を切り替えると見出しが空に浮かび、シートが下からせり上がる。数字は数え上げ、主ボタンには光が一度だけ走り、成功した行には光の帯が通る。等速の動きや意味のない繰り返しは使わない。
-- **ロゴ** 幹から枝が分かれて戻り、もう一本が先へ伸びる。節でつながった枝がそのまま「R」になっている。元データは `src/assets/brand/symbol.svg`。アプリのアイコンは、夜の湖（星空、満月、雲、山並み、水面に映る月の光）の上にこのロゴを置く。景色は `scripts/make-app-icon.py` が `src-tauri/icons/source/app-icon.png` に描く。既定は形を整理した絵（`--style stylized`）で、`--style realistic` にするとアプリの背景と同じ原板（21 時の空・雲・山と湖）と月の画像から写実的に組み立てる（numpy と Pillow が必要。背景を描き直したら、このスクリプトも実行する）。各サイズは `npx tauri icon src-tauri/icons/source/app-icon.png -o <一時フォルダ>` で作り、`32x32.png`・`128x128.png`・`128x128@2x.png`・`icon.icns`・`icon.ico`・`icon.png` を `src-tauri/icons/` に置く。
+- **ロゴ** 幹から枝が分かれて戻り、もう一本が先へ伸びる。節でつながった枝がそのまま「R」になっている。元データは `src/assets/brand/symbol.svg`。アプリのアイコンは、夜の湖（星空、満月、雲、山並み、水面に映る月の光）の上にこのロゴを置く。景色は `scripts/make-app-icon.py` が `src-tauri/icons/source/app-icon.png` に描く。既定は形を整理した絵（`--style stylized`）で、`--style realistic` にするとアプリの背景と同じ原板（21 時の空・雲・山と湖）と月の画像から写実的に組み立てる（numpy と Pillow が必要。背景を描き直したら、このスクリプトも実行する）。スクリプトは、macOS の決まりに合わせて周りに余白を取った `app-icon.png` と、枠いっぱいに描いた `app-icon-full.png` の 2 枚を書き出す。各サイズは `npx tauri icon <画像> -o <一時フォルダ>` で作る。macOS の `icon.icns` は `app-icon.png` から、Windows と Linux で使う `icon.ico`・`32x32.png`・`128x128.png`・`128x128@2x.png`・`icon.png` は `app-icon-full.png` から作って `src-tauri/icons/` に置く（余白があると、Windows のタスクバーなどでほかのアプリより小さく見えるため）。
+- **解像度の低い画面** 表示倍率が 1.5 倍に満たない画面（Windows の 100% など）では、文字の大きさを 0.5px 刻みから 1px 刻みに切り上げ、アイコンの線を少し太くする。半端な大きさの文字や 1px に満たない線は、こうした画面ではにじんで見えるため。
 
 ## 言葉
 
