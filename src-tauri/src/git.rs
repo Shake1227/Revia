@@ -720,7 +720,11 @@ mod safety_tests {
             "git@github.com:o/r.git",
             "host:o/r@revision.git",
             "https://github.com/o/r.git",
-            "/tmp/repo",
+            if cfg!(windows) {
+                r"C:\tmp\repo"
+            } else {
+                "/tmp/repo"
+            },
         ] {
             assert!(validate_url(url).is_ok());
         }
