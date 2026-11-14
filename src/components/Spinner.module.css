@@ -1,0 +1,25 @@
+.spinner {
+  color: var(--accent);
+  animation: global(rv-spin) 0.9s linear infinite;
+}
+
+.determinate {
+  animation: none;
+  transform: rotate(-90deg);
+}
+
+.track {
+  stroke: currentColor;
+  opacity: 0.18;
+}
+
+.arc {
+  stroke: currentColor;
+  transition: stroke-dashoffset 260ms var(--ease-out);
+}
+
+:global(:root[data-motion="reduced"]) .spinner:not(.determinate) {
+  animation: global(rv-breathe) 1.6s ease-in-out infinite !important;
+  animation-iteration-count: infinite !important;
+  animation-duration: 1.6s !important;
+}

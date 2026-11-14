@@ -1,0 +1,338 @@
+.row {
+  --tone: var(--st-neutral);
+  position: relative;
+  display: grid;
+  grid-template-columns: 22px 24px minmax(120px, 1fr) minmax(0, 170px) var(--col-state) var(--col-time) var(--col-action);
+  align-items: center;
+  column-gap: 12px;
+  height: 54px;
+  padding: 0 10px 0 10px;
+  border-radius: var(--radius-lg);
+  cursor: default;
+  transition:
+    background-color var(--dur-2) var(--ease-out),
+    box-shadow var(--dur-2) var(--ease-out);
+}
+
+.row[data-tone="synced"] {
+  --tone: var(--st-synced);
+}
+.row[data-tone="ahead"] {
+  --tone: var(--st-ahead);
+}
+.row[data-tone="behind"] {
+  --tone: var(--st-behind);
+}
+.row[data-tone="diverged"] {
+  --tone: var(--st-diverged);
+}
+.row[data-tone="dirty"] {
+  --tone: var(--st-dirty);
+}
+.row[data-tone="conflict"] {
+  --tone: var(--st-conflict);
+}
+.row[data-tone="error"] {
+  --tone: var(--st-error);
+}
+.row[data-tone="special"] {
+  --tone: var(--st-special);
+}
+
+.row:hover,
+.row[data-menu-open] {
+  background: var(--surface-1);
+}
+
+.row[data-cursor] {
+  background: var(--surface-2);
+  box-shadow: inset 0 0 0 1px var(--line-2);
+}
+
+.row[data-selected] {
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
+.row[data-selected][data-cursor] {
+  box-shadow: inset 0 0 0 1px var(--accent-line);
+}
+
+.compact {
+  height: 40px;
+  border-radius: var(--radius-md);
+}
+
+.check {
+  display: inline-flex;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity var(--dur-2) var(--ease-out);
+}
+
+.row:hover .check,
+.row[data-selected] .check,
+.row[data-cursor] .check,
+.row[data-selection-mode] .check {
+  opacity: 1;
+}
+
+.glyph {
+  display: inline-flex;
+}
+
+.identity {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1px;
+  min-width: 0;
+}
+
+.compact .identity {
+  flex-direction: row;
+  align-items: baseline;
+  justify-content: flex-start;
+  gap: 10px;
+}
+
+.nameLine {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.name {
+  font-size: var(--text-md);
+  font-weight: var(--weight-medium);
+  color: var(--text-1);
+  letter-spacing: 0.005em;
+}
+
+.star {
+  color: var(--st-dirty);
+  opacity: 0.85;
+}
+
+.path {
+  font-size: var(--text-xs);
+  color: var(--text-3);
+}
+
+.compact .path {
+  flex: 1;
+}
+
+.branch {
+  min-width: 0;
+  display: flex;
+}
+
+.branchChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 100%;
+  color: var(--text-2);
+  font-size: 11.5px;
+}
+
+.branchChip svg {
+  color: var(--text-3);
+}
+
+.detached {
+  color: var(--st-special);
+}
+
+.detached svg {
+  color: inherit;
+}
+
+.status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.stateLabel {
+  font-size: var(--text-sm);
+  color: var(--text-2);
+  transition: color var(--dur-4) var(--ease-out);
+}
+
+.row[data-tone="synced"] .stateLabel,
+.row:not([data-tone]) .stateLabel,
+.row[data-tone="neutral"] .stateLabel {
+  color: var(--text-3);
+}
+
+.row[data-tone="conflict"] .stateLabel,
+.row[data-tone="error"] .stateLabel {
+  color: color-mix(in srgb, var(--tone) 85%, var(--text-1));
+}
+
+.count svg {
+  color: var(--c);
+}
+
+.row[data-flash="succeeded"]::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(100deg, transparent 30%, color-mix(in srgb, var(--st-synced) 16%, transparent) 50%, transparent 70%);
+  background-size: 220% 100%;
+  animation: global(rv-shimmer) 900ms var(--ease-out) 1 both;
+  pointer-events: none;
+}
+
+.counts {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.count {
+  --c: var(--st-neutral);
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  color: var(--text-2);
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.count[data-kind="dirty"] {
+  --c: var(--st-dirty);
+}
+.count[data-kind="ahead"] {
+  --c: var(--st-ahead);
+}
+.count[data-kind="behind"] {
+  --c: var(--st-behind);
+}
+
+.running {
+  font-size: var(--text-sm);
+  color: var(--accent);
+  animation: global(rv-fade-in) var(--dur-3) var(--ease-out);
+}
+
+.time {
+  font-size: var(--text-xs);
+  color: var(--text-3);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  min-width: 0;
+}
+
+.primaryAction {
+  flex: 0 1 auto;
+  min-width: 0;
+  opacity: 0;
+  transform: translateX(4px);
+  transition:
+    opacity var(--dur-2) var(--ease-out),
+    transform var(--dur-3) var(--ease-out),
+    background-color var(--dur-2) var(--ease-out),
+    border-color var(--dur-2) var(--ease-out);
+}
+
+.row:hover .primaryAction,
+.row[data-cursor] .primaryAction,
+.row[data-menu-open] .primaryAction,
+.primaryAction:focus-visible {
+  opacity: 1;
+  transform: none;
+}
+
+.emphasis {
+  opacity: 1;
+  transform: none;
+  color: var(--text-1);
+  border-color: var(--line-3);
+}
+
+.emphasis:hover:not(:disabled) {
+  background: var(--surface-3);
+}
+
+.more {
+  opacity: 0.35;
+  transition: opacity var(--dur-2);
+}
+
+.row:hover .more,
+.row[data-cursor] .more,
+.row[data-menu-open] .more {
+  opacity: 1;
+}
+
+.progressLine {
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: 0;
+  height: 1.5px;
+  border-radius: 2px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  animation: global(rv-fade-in) var(--dur-3) var(--ease-out);
+}
+
+.progressLine > span {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 0%, var(--brand-1) 30%, var(--brand-2) 50%, var(--brand-3) 70%, transparent 100%);
+  background-size: 45% 100%;
+  background-repeat: no-repeat;
+  animation: global(rv-shimmer) 1.5s var(--ease-in-out) infinite;
+}
+
+.progressLine[data-determinate] > span {
+  animation: none;
+  background: var(--brand-gradient);
+  background-size: 100% 100%;
+  transform-origin: left center;
+  transition: transform 300ms var(--ease-out);
+}
+
+@container list (max-width: 860px) {
+  .row {
+    grid-template-columns: 22px 24px minmax(120px, 1fr) var(--col-state) var(--col-time) var(--col-action);
+  }
+  .branch {
+    display: none;
+  }
+}
+
+@container list (max-width: 700px) {
+  .row {
+    grid-template-columns: 22px 24px minmax(100px, 1fr) 150px var(--col-action);
+  }
+  .time {
+    display: none;
+  }
+}
+
+@container list (max-width: 540px) {
+  .row {
+    grid-template-columns: 22px 24px minmax(80px, 1fr) auto 34px;
+    column-gap: 9px;
+  }
+  .stateLabel,
+  .primaryAction {
+    display: none;
+  }
+}

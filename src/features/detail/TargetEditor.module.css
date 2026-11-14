@@ -1,0 +1,33 @@
+.editor {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.label {
+  display: flex;
+  flex-direction: column;
+  font-size: var(--text-sm);
+  color: var(--text-1);
+}
+
+.saved {
+  font-size: var(--text-2xs);
+  color: var(--accent);
+}
+
+.invalid {
+  font-size: var(--text-2xs);
+  color: var(--danger);
+}
+
+.select {
+  width: 100%;
+}

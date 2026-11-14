@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <title>Revia</title>
+  <defs>
+    <linearGradient id="revia-aurora" x1="13" y1="7" x2="51" y2="57" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#F6D3B0"/>
+      <stop offset="0.5" stop-color="#E7A3BD"/>
+      <stop offset="1" stop-color="#AB9CF2"/>
+    </linearGradient>
+  </defs>
+  <g stroke="url(#revia-aurora)" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M20 17.500v29"/>
+    <path d="M24.500 13H32a11 11 0 0 1 0 22H20"/>
+    <path d="M26 35c7.500 0 11.500 5.500 15.400 12.300"/>
+    <circle cx="20" cy="13" r="4.500"/>
+    <circle cx="20" cy="51" r="4.500"/>
+    <circle cx="44" cy="51" r="4.500"/>
+  </g>
+</svg>

@@ -1,0 +1,78 @@
+.onboarding {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+  min-height: 100%;
+  padding: 40px 24px 60px;
+  text-align: center;
+}
+
+.mark svg {
+  filter: drop-shadow(0 0 30px color-mix(in srgb, var(--brand-2) 55%, transparent));
+}
+
+.text {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  max-width: 460px;
+}
+
+.text h2 {
+  font-size: var(--text-3xl);
+  font-weight: 620;
+  letter-spacing: 0.01em;
+}
+
+.text p {
+  margin-bottom: 12px;
+  font-size: var(--text-md);
+  line-height: 1.8;
+  color: var(--text-2);
+}
+
+.features {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px 28px;
+  max-width: 760px;
+  margin-top: 14px;
+}
+
+.features li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 220px;
+  text-align: left;
+}
+
+.featureIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border-radius: 9px;
+  background: var(--surface-2);
+  color: var(--accent);
+}
+
+.featureTitle {
+  display: block;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--text-1);
+}
+
+.featureBody {
+  display: block;
+  font-size: var(--text-xs);
+  line-height: 1.6;
+  color: var(--text-3);
+}

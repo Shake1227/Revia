@@ -1,0 +1,186 @@
+.changes {
+  display: grid;
+  grid-template-columns: minmax(260px, 340px) minmax(0, 1fr);
+  flex: 1;
+  min-height: 380px;
+  border: 1px solid var(--line-1);
+  border-radius: var(--radius-lg);
+  background: var(--surface-1);
+  overflow: hidden;
+}
+
+.side {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-right: 1px solid var(--line-1);
+}
+
+.listHead {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  height: 38px;
+  padding: 0 8px 0 12px;
+  border-bottom: 1px solid var(--line-1);
+  font-size: var(--text-xs);
+  color: var(--text-3);
+  flex-shrink: 0;
+}
+
+.grow {
+  flex: 1;
+}
+
+.files {
+  flex: 1;
+  min-height: 80px;
+  overflow-y: auto;
+  padding: 4px;
+}
+
+.file {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 28px;
+  padding: 0 8px;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  color: var(--text-1);
+  transition: background-color var(--dur-1) ease-out;
+}
+
+.file:hover {
+  background: var(--surface-2);
+}
+
+.file[data-active] {
+  background: var(--accent-soft);
+}
+
+.fileCheck {
+  display: inline-flex;
+}
+
+.mark {
+  --c: var(--text-3);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--c) 15%, transparent);
+  color: var(--c);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.mark[data-kind="modified"],
+.mark[data-kind="type_changed"] {
+  --c: var(--st-dirty);
+}
+.mark[data-kind="added"],
+.mark[data-kind="untracked"],
+.mark[data-kind="copied"] {
+  --c: var(--st-synced);
+}
+.mark[data-kind="deleted"] {
+  --c: var(--st-conflict);
+}
+.mark[data-kind="renamed"] {
+  --c: var(--st-ahead);
+}
+.mark[data-kind="conflicted"] {
+  --c: var(--st-conflict);
+  background: var(--st-conflict);
+  color: var(--text-on-accent);
+}
+
+.fileName {
+  flex: 1;
+}
+
+.dir {
+  color: var(--text-3);
+}
+
+.stats {
+  display: inline-flex;
+  gap: 5px;
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+.add {
+  color: var(--diff-add-text);
+}
+
+.del {
+  color: var(--diff-del-text);
+}
+
+.commit {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 10px;
+  border-top: 1px solid var(--line-1);
+  flex-shrink: 0;
+}
+
+.commitNote {
+  font-size: var(--text-2xs);
+  color: var(--text-4);
+  text-align: center;
+}
+
+.diffPane {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: color-mix(in srgb, var(--bg-base) 40%, transparent);
+}
+
+.diffHead {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  height: 38px;
+  padding: 0 8px 0 14px;
+  border-bottom: 1px solid var(--line-1);
+  flex-shrink: 0;
+}
+
+.diffPath {
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+.loading {
+  display: flex;
+  justify-content: center;
+  padding: 48px 0;
+}
+
+.pad {
+  padding: 4px 0;
+}
+
+@container detail (max-width: 720px) {
+  .changes {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto minmax(260px, 1fr);
+  }
+  .side {
+    border-right: 0;
+    border-bottom: 1px solid var(--line-1);
+  }
+  .files {
+    max-height: 200px;
+  }
+}

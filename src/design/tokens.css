@@ -1,0 +1,236 @@
+:root {
+  --font-system: system-ui, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", "Noto Sans CJK JP",
+    "Noto Sans JP", "Meiryo UI", sans-serif;
+  --font-system-mono: ui-monospace, "SF Mono", "SFMono-Regular", "Cascadia Code", "JetBrains Mono", Menlo, Consolas,
+    monospace;
+  --font-sans: "IBM Plex Sans JP", var(--font-system);
+  --font-display: var(--font-sans);
+  --font-mono: "IBM Plex Mono", "IBM Plex Sans JP", var(--font-system-mono);
+
+  --text-2xs: 10.5px;
+  --text-xs: 11.5px;
+  --text-sm: 12.5px;
+  --text-md: 13.5px;
+  --text-lg: 15px;
+  --text-xl: 18px;
+  --text-2xl: 22px;
+  --text-3xl: 28px;
+
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+
+  --space-1: 2px;
+  --space-2: 4px;
+  --space-3: 6px;
+  --space-4: 8px;
+  --space-5: 12px;
+  --space-6: 16px;
+  --space-7: 20px;
+  --space-8: 24px;
+  --space-9: 32px;
+  --space-10: 40px;
+  --space-11: 56px;
+
+  --radius-xs: 5px;
+  --radius-sm: 7px;
+  --radius-md: 9px;
+  --radius-lg: 12px;
+  --radius-xl: 14px;
+  --radius-2xl: 16px;
+  --radius-full: 999px;
+
+  --control-xs: 22px;
+  --control-sm: 26px;
+  --control-md: 30px;
+  --control-lg: 36px;
+
+  --dock-width: 52px;
+  --topbar-height: 50px;
+  --window-controls-width: 102px;
+  --titlebar-height: 54px;
+  --content-max: 1180px;
+  --gutter: 12px;
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-soft: cubic-bezier(0.33, 1, 0.68, 1);
+  --dur-1: 90ms;
+  --dur-2: 150ms;
+  --dur-3: 220ms;
+  --dur-4: 340ms;
+
+  --panel-alpha: 0.78;
+
+  --col-state: 172px;
+  --col-time: 62px;
+  --col-action: 138px;
+}
+
+:root[data-typeface="mplus"] {
+  --font-sans: "M PLUS 2 Variable", var(--font-system);
+  --font-mono: "IBM Plex Mono", "M PLUS 2 Variable", var(--font-system-mono);
+}
+
+:root[data-typeface="system"] {
+  --font-sans: var(--font-system);
+  --font-mono: var(--font-system-mono);
+}
+
+:root:lang(en) {
+  --col-state: 176px;
+  --col-time: 66px;
+  --col-action: 166px;
+}
+
+:root,
+:root[data-theme="dark"],
+:root[data-theme="dark"] :is(.rv-sheet, [data-surface]),
+[data-sky="dark"] {
+  color-scheme: dark;
+
+  --bg-base: #060913;
+  --bg-app: #0a0d19;
+  --bg-raised: #121527;
+  --panel: 13 16 30;
+  --bg-overlay: rgb(20 22 40 / 0.86);
+  --bg-scrim: rgb(4 5 12 / 0.56);
+
+  --surface-1: rgb(255 255 255 / 0.03);
+  --surface-2: rgb(255 255 255 / 0.055);
+  --surface-3: rgb(255 255 255 / 0.085);
+  --surface-4: rgb(255 255 255 / 0.125);
+
+  --line-1: rgb(255 255 255 / 0.06);
+  --line-2: rgb(255 255 255 / 0.095);
+  --line-3: rgb(255 255 255 / 0.16);
+
+  --text-1: #f0eef7;
+  --text-2: #b0aec6;
+  --text-3: #7b7a95;
+  --text-4: #525170;
+  --text-on-accent: #1a1730;
+
+  --brand-1: #f6d3b0;
+  --brand-2: #e7a3bd;
+  --brand-3: #ab9cf2;
+  --brand-gradient: linear-gradient(118deg, var(--brand-1) 0%, var(--brand-2) 48%, var(--brand-3) 100%);
+
+  --accent: #b9acf7;
+  --accent-strong: #d2c9ff;
+  --accent-soft: rgb(171 156 242 / 0.15);
+  --accent-line: rgb(185 172 247 / 0.4);
+  --focus-ring: rgb(196 186 250 / 0.75);
+
+  --st-synced: #7fd8b8;
+  --st-ahead: #8fb7ff;
+  --st-behind: #c3a9ff;
+  --st-diverged: #ffb38c;
+  --st-dirty: #f0cf87;
+  --st-conflict: #ff8fa5;
+  --st-error: #ff8b7e;
+  --st-special: #e6a7e5;
+  --st-neutral: #8f93ab;
+
+  --danger: #ff7d90;
+  --danger-strong: #f25672;
+  --danger-soft: rgb(255 125 144 / 0.13);
+  --warning: #f0cf87;
+  --warning-soft: rgb(240 207 135 / 0.12);
+  --success: #7fd8b8;
+  --success-soft: rgb(127 216 184 / 0.12);
+
+  --diff-add-bg: rgb(127 216 184 / 0.1);
+  --diff-add-text: #abecd6;
+  --diff-del-bg: rgb(255 143 165 / 0.1);
+  --diff-del-text: #ffb6c3;
+
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.3);
+  --shadow-md: 0 8px 24px -8px rgb(0 0 0 / 0.55), 0 2px 6px rgb(0 0 0 / 0.25);
+  --shadow-lg: 0 24px 64px -16px rgb(0 0 0 / 0.72), 0 8px 20px -8px rgb(0 0 0 / 0.45);
+  --shadow-sheet: 0 30px 80px -30px rgb(0 0 0 / 0.75), 0 1px 0 rgb(255 255 255 / 0.05) inset;
+  --inner-light: inset 0 1px 0 rgb(255 255 255 / 0.07);
+
+  --btn-primary-bg: linear-gradient(180deg, #fdf8ec 0%, #e9e0cf 100%);
+  --btn-primary-shadow: inset 0 1px 0 rgb(255 255 255 / 0.7), 0 0 0 1px rgb(255 255 255 / 0.08),
+    0 8px 22px -12px rgb(246 211 176 / 0.8);
+  --btn-primary-glow: 0 10px 34px -10px rgb(246 222 190 / 0.75);
+}
+
+:root[data-theme="light"],
+:root[data-theme="light"] :is(.rv-sheet, [data-surface]),
+[data-sky="light"] {
+  color-scheme: light;
+
+  --bg-base: #e9edf4;
+  --bg-app: #f1f3f8;
+  --bg-raised: #ffffff;
+  --panel: 252 252 255;
+  --bg-overlay: rgb(255 255 255 / 0.9);
+  --bg-scrim: rgb(34 36 66 / 0.24);
+
+  --surface-1: rgb(255 255 255 / 0.55);
+  --surface-2: rgb(32 34 76 / 0.045);
+  --surface-3: rgb(32 34 76 / 0.075);
+  --surface-4: rgb(32 34 76 / 0.11);
+
+  --line-1: rgb(32 34 76 / 0.075);
+  --line-2: rgb(32 34 76 / 0.115);
+  --line-3: rgb(32 34 76 / 0.2);
+
+  --text-1: #1a1c33;
+  --text-2: #4e5173;
+  --text-3: #7c7f9d;
+  --text-4: #a9abc3;
+  --text-on-accent: #ffffff;
+
+  --brand-1: #e58f63;
+  --brand-2: #cf6795;
+  --brand-3: #6d5bd4;
+
+  --accent: #6553d0;
+  --accent-strong: #5142b6;
+  --accent-soft: rgb(101 83 208 / 0.1);
+  --accent-line: rgb(101 83 208 / 0.34);
+  --focus-ring: rgb(101 83 208 / 0.6);
+
+  --st-synced: #128f73;
+  --st-ahead: #2f6be0;
+  --st-behind: #7a55dc;
+  --st-diverged: #c9642a;
+  --st-dirty: #a2721a;
+  --st-conflict: #cf346c;
+  --st-error: #d04444;
+  --st-special: #a147b6;
+  --st-neutral: #6e718b;
+
+  --danger: #cf3b58;
+  --danger-strong: #b62a48;
+  --danger-soft: rgb(207 59 88 / 0.09);
+  --warning: #a2721a;
+  --warning-soft: rgb(186 130 30 / 0.11);
+  --success: #128f73;
+  --success-soft: rgb(18 143 115 / 0.1);
+
+  --diff-add-bg: rgb(18 143 115 / 0.1);
+  --diff-add-text: #0b6c57;
+  --diff-del-bg: rgb(207 52 108 / 0.09);
+  --diff-del-text: #a22652;
+
+  --shadow-sm: 0 1px 2px rgb(32 34 76 / 0.08);
+  --shadow-md: 0 10px 28px -10px rgb(32 34 76 / 0.22), 0 2px 6px rgb(32 34 76 / 0.07);
+  --shadow-lg: 0 28px 70px -20px rgb(32 34 76 / 0.32), 0 8px 20px -10px rgb(32 34 76 / 0.14);
+  --shadow-sheet: 0 30px 70px -34px rgb(48 50 100 / 0.45), 0 1px 0 rgb(255 255 255 / 0.8) inset;
+  --inner-light: inset 0 1px 0 rgb(255 255 255 / 0.75);
+
+  --btn-primary-bg: linear-gradient(180deg, #34325f 0%, #201f43 100%);
+  --btn-primary-shadow: inset 0 1px 0 rgb(255 255 255 / 0.16), 0 8px 20px -10px rgb(32 31 67 / 0.7);
+  --btn-primary-glow: 0 10px 26px -8px rgb(58 54 120 / 0.6);
+}
+
+:root[data-motion="reduced"] {
+  --dur-1: 0ms;
+  --dur-2: 0ms;
+  --dur-3: 0ms;
+  --dur-4: 0ms;
+}

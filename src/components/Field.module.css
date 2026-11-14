@@ -1,0 +1,131 @@
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.label {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--text-2);
+}
+
+.hint {
+  font-size: var(--text-xs);
+  color: var(--text-3);
+  line-height: 1.55;
+}
+
+.error {
+  font-size: var(--text-xs);
+  color: var(--danger);
+}
+
+.control {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: var(--control-md);
+  padding: 0 9px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--line-2);
+  background: var(--surface-1);
+  transition:
+    border-color var(--dur-2) var(--ease-out),
+    background-color var(--dur-2) var(--ease-out),
+    box-shadow var(--dur-3) var(--ease-out);
+}
+
+.control:hover {
+  border-color: var(--line-3);
+}
+
+.control:focus-within {
+  border-color: var(--accent-line);
+  background: var(--surface-2);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
+.control[data-invalid] {
+  border-color: color-mix(in srgb, var(--danger) 60%, transparent);
+}
+
+.control[data-invalid]:focus-within {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 16%, transparent);
+}
+
+.control[data-disabled] {
+  opacity: 0.5;
+}
+
+.sm {
+  height: var(--control-sm);
+  border-radius: var(--radius-sm);
+}
+
+.lg {
+  height: var(--control-lg);
+  padding: 0 12px;
+  border-radius: var(--radius-lg);
+}
+
+.input,
+.textarea {
+  flex: 1;
+  min-width: 0;
+  background: none;
+  border: 0;
+  outline: none;
+  font-size: var(--text-md);
+  color: var(--text-1);
+}
+
+.sm .input {
+  font-size: var(--text-sm);
+}
+
+.input::placeholder,
+.textarea::placeholder {
+  color: var(--text-4);
+}
+
+.leading,
+.trailing {
+  display: inline-flex;
+  align-items: center;
+  color: var(--text-3);
+  flex-shrink: 0;
+}
+
+.area {
+  height: auto;
+  padding: 7px 9px;
+  align-items: stretch;
+}
+
+.textarea {
+  resize: none;
+  line-height: 1.6;
+  min-height: 56px;
+}
+
+.search {
+  border-radius: var(--radius-full);
+  padding: 0 10px 0 11px;
+}
+
+.clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--surface-4);
+  color: var(--text-2);
+}
+
+.clear:hover {
+  color: var(--text-1);
+}

@@ -1,0 +1,352 @@
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 120px;
+  padding-bottom: 4px;
+}
+
+.inset {
+  padding: 0 22px;
+}
+
+.planning {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 36px 0;
+  font-size: var(--text-sm);
+  color: var(--text-3);
+}
+
+.nothing {
+  padding: 22px 22px 6px;
+  font-size: var(--text-sm);
+  color: var(--text-3);
+  text-align: center;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  padding: 0 12px;
+}
+
+.groupLabel {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 10px 22px 0;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  color: var(--text-2);
+}
+
+.groupLabel span {
+  font-weight: var(--weight-regular);
+  color: var(--text-3);
+}
+
+.row {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  padding: 9px 10px;
+  border-radius: var(--radius-md);
+  transition: background-color var(--dur-2) var(--ease-out);
+}
+
+.row:hover {
+  background: var(--surface-1);
+}
+
+.row[data-disabled] .name {
+  color: var(--text-3);
+}
+
+.row > :first-child {
+  margin-top: 1px;
+}
+
+.rowMain {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.rowHead {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+
+.name {
+  font-size: var(--text-md);
+  font-weight: var(--weight-medium);
+  color: var(--text-1);
+}
+
+.branch {
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+.risk {
+  flex-shrink: 0;
+  height: 17px;
+  padding: 0 6px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: var(--radius-full);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-medium);
+  color: var(--warning);
+  background: var(--warning-soft);
+}
+
+.risk[data-level="danger"] {
+  color: var(--danger);
+  background: var(--danger-soft);
+}
+
+.flow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  row-gap: 4px;
+}
+
+.flowItem {
+  display: inline-flex;
+  align-items: center;
+}
+
+.flowArrow {
+  margin: 0 3px;
+  color: var(--text-4);
+}
+
+.chip {
+  --c: var(--text-2);
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 7px;
+  border-radius: var(--radius-xs);
+  background: color-mix(in srgb, var(--c) 11%, transparent);
+  color: var(--c);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.chip[data-code="pull"] {
+  --c: var(--st-behind);
+}
+.chip[data-code="push"] {
+  --c: var(--st-ahead);
+}
+.chip[data-code="commit"],
+.chip[data-code="initial_commit"] {
+  --c: var(--st-dirty);
+}
+.chip[data-code="merge"] {
+  --c: var(--st-special);
+}
+.chip[data-code="create_repo"] {
+  --c: var(--st-synced);
+}
+.chip[data-force] {
+  --c: var(--danger);
+}
+
+.blocker {
+  font-size: var(--text-sm);
+  color: var(--text-3);
+}
+
+.warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: var(--text-xs);
+  line-height: 1.55;
+  color: color-mix(in srgb, var(--warning) 80%, var(--text-1));
+}
+
+.warning svg {
+  margin-top: 3px;
+  flex-shrink: 0;
+}
+
+.warning[data-severe] {
+  color: var(--danger);
+}
+
+.paths {
+  font-size: 11px;
+  opacity: 0.85;
+}
+
+.stateGlyph {
+  --tone: var(--st-neutral);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  color: var(--tone);
+  background: color-mix(in srgb, var(--tone) 14%, transparent);
+  transition:
+    color var(--dur-3) var(--ease-out),
+    background-color var(--dur-3) var(--ease-out);
+}
+
+.stateGlyph[data-state="running"] {
+  background: none;
+}
+
+.stateInner {
+  display: inline-flex;
+}
+
+.stateLabel {
+  --tone: var(--st-neutral);
+  flex-shrink: 0;
+  font-size: var(--text-xs);
+  color: var(--tone);
+}
+
+.result {
+  font-size: var(--text-sm);
+  line-height: 1.55;
+  color: var(--text-2);
+}
+
+.row[data-state="queued"] .name,
+.row[data-state="queued"] .result {
+  color: var(--text-3);
+}
+
+.resultRunning {
+  color: var(--accent);
+}
+
+.rowActions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.detail {
+  margin-top: 4px;
+  padding: 8px 10px;
+  max-height: 150px;
+  overflow: auto;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  font-size: 11px;
+  line-height: 1.55;
+  color: var(--text-2);
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.progress {
+  display: flex;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  overflow: hidden;
+}
+
+.part {
+  --tone: var(--st-neutral);
+  flex: 0 1 0;
+  min-width: 0;
+  background: var(--tone);
+  transition: flex-grow var(--dur-4) var(--ease-out);
+}
+
+.part[data-part="succeeded"] {
+  --tone: var(--st-synced);
+}
+
+.part[data-part="needs_confirmation"] {
+  --tone: var(--st-dirty);
+}
+
+.part[data-part="conflict"] {
+  --tone: var(--st-conflict);
+}
+
+.part[data-part="failed"] {
+  --tone: var(--st-error);
+}
+
+.part[data-part="stopped"] {
+  --tone: var(--text-4);
+}
+
+.part[data-part="running"] {
+  --tone: var(--st-ahead);
+  animation: pulse 1.5s var(--ease-in-out) infinite alternate;
+}
+
+.part[data-part="queued"] {
+  background: transparent;
+}
+
+@keyframes pulse {
+  from {
+    opacity: 0.2;
+  }
+  to {
+    opacity: 0.55;
+  }
+}
+
+.stateGlyph[data-tone="synced"] {
+  --tone: var(--st-synced);
+}
+.stateGlyph[data-tone="ahead"] {
+  --tone: var(--st-ahead);
+}
+.stateGlyph[data-tone="dirty"] {
+  --tone: var(--st-dirty);
+}
+.stateGlyph[data-tone="conflict"] {
+  --tone: var(--st-conflict);
+}
+.stateGlyph[data-tone="error"] {
+  --tone: var(--st-error);
+}
+.stateGlyph[data-tone="neutral"] {
+  --tone: var(--st-neutral);
+}
+
+.stateLabel[data-tone="synced"] {
+  --tone: var(--st-synced);
+}
+.stateLabel[data-tone="ahead"] {
+  --tone: var(--st-ahead);
+}
+.stateLabel[data-tone="dirty"] {
+  --tone: var(--st-dirty);
+}
+.stateLabel[data-tone="conflict"] {
+  --tone: var(--st-conflict);
+}
+.stateLabel[data-tone="error"] {
+  --tone: var(--st-error);
+}
+.stateLabel[data-tone="neutral"] {
+  --tone: var(--st-neutral);
+}

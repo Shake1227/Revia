@@ -1,0 +1,653 @@
+.backdrop {
+  --plate-w: max(100vw, 1040px);
+  --plate-h: calc(var(--plate-w) * 0.5625);
+  --horizon: calc(var(--plate-h) * 0.34514);
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background: var(--bg-app);
+  contain: strict;
+}
+
+.backdrop > * {
+  position: absolute;
+}
+
+.backdrop[data-animated="false"] * {
+  animation-play-state: paused !important;
+}
+
+.backdrop[data-scene="lake"] {
+  background: var(--base-color);
+}
+
+.backdrop[data-scene="hoshi"] {
+  background: #04050e;
+}
+
+.dim {
+  inset: 0;
+  background: var(--bg-app);
+}
+
+[data-scene="image"]::after {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 260px;
+  background: linear-gradient(180deg, rgb(var(--panel) / 0.6), transparent);
+}
+
+.plates {
+  top: 0;
+  right: 0;
+  width: var(--plate-w);
+  height: var(--plate-h);
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.plates > * {
+  position: absolute;
+}
+
+.sky {
+  z-index: 0;
+}
+.starBand {
+  z-index: 1;
+}
+.moon,
+.sun {
+  z-index: 2;
+}
+.clouds {
+  z-index: 3;
+}
+.land {
+  z-index: 4;
+}
+.water {
+  z-index: 5;
+}
+.mist,
+.mote {
+  z-index: 6;
+}
+.air {
+  z-index: 7;
+}
+
+.backdrop {
+  --glide: 0s;
+}
+
+.backdrop[data-live] {
+  --glide: 60s;
+}
+
+.backdrop[data-scene="lake"] {
+  transition: background-color var(--glide) linear;
+}
+
+.sky,
+.land,
+.cloudImage,
+.starBand {
+  transition: opacity var(--glide) linear;
+}
+
+.sun,
+.moon {
+  left: 0;
+  top: 0;
+  translate: calc(var(--plate-w) * var(--bx)) calc(var(--plate-h) * var(--by));
+  will-change: translate;
+  transition:
+    translate var(--glide) linear,
+    opacity var(--glide) linear;
+}
+
+.column,
+.reflection {
+  left: 0;
+  will-change: translate;
+  transition:
+    translate var(--glide) linear,
+    opacity var(--glide) linear;
+}
+
+.ripples,
+.mistTile {
+  transition: background-color var(--glide) linear;
+}
+
+.sky {
+  inset: 0 0 auto 0;
+  height: 40%;
+  background-size: 100% 100%;
+}
+
+.land {
+  inset: 17.0139% 0 0 0;
+  background-size: 100% 100%;
+}
+
+.starBand {
+  inset: 0 0 auto 0;
+  height: 26%;
+  mask-image: linear-gradient(180deg, #000 55%, transparent);
+  -webkit-mask-image: linear-gradient(180deg, #000 55%, transparent);
+}
+
+.stars {
+  position: absolute;
+  inset: 0;
+  background-repeat: no-repeat;
+  animation: twinkle 7s ease-in-out infinite;
+}
+
+.stars[data-layer="1"] {
+  animation-duration: 9s;
+  animation-delay: -3s;
+}
+
+.stars[data-layer="2"] {
+  animation-duration: 5.500s;
+  animation-delay: -1.500s;
+}
+
+.cosmos {
+  inset: 0;
+}
+
+.cosmosPlate {
+  position: absolute;
+  inset: -6%;
+  background-size: cover;
+  background-position: center;
+  animation: drift 150s ease-in-out infinite alternate;
+}
+
+.meteor {
+  top: 34px;
+  left: 62%;
+  width: 150px;
+  height: 1.5px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.9));
+  opacity: 0;
+  transform: rotate(152deg);
+}
+
+.meteor[data-ambient] {
+  animation: meteor 23s ease-in 8s infinite;
+}
+
+.meteor[data-once] {
+  left: 44%;
+  top: 22px;
+  width: 190px;
+  animation: meteor-once 1.300s ease-in 1 both;
+}
+
+.sun,
+.moon {
+  width: 0;
+  height: 0;
+}
+
+.sun > *,
+.moon > * {
+  position: absolute;
+  left: 0;
+  top: 0;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  translate: -50% -50%;
+}
+
+.sunGlow {
+  width: calc(var(--plate-w) * 0.34);
+  background: radial-gradient(
+    closest-side,
+    color-mix(in srgb, var(--sun-color) 70%, transparent) 0%,
+    color-mix(in srgb, var(--sun-color) 30%, transparent) 20%,
+    color-mix(in srgb, var(--sun-color) 10%, transparent) 46%,
+    transparent 72%
+  );
+}
+
+.sunRays {
+  width: calc(var(--plate-w) * 0.2);
+  opacity: var(--sun-rays);
+  background: repeating-conic-gradient(
+    from 0deg,
+    color-mix(in srgb, var(--sun-color) 60%, #fff) 0deg 2.4deg,
+    transparent 2.4deg 9deg,
+    color-mix(in srgb, var(--sun-color) 34%, transparent) 9deg 10.2deg,
+    transparent 10.2deg 18deg
+  );
+  mask-image: radial-gradient(closest-side, transparent 14%, #000 19%, rgb(0 0 0 / 0.35) 44%, transparent 80%);
+  -webkit-mask-image: radial-gradient(closest-side, transparent 14%, #000 19%, rgb(0 0 0 / 0.35) 44%, transparent 80%);
+  filter: blur(1.2px);
+  animation: spin 240s linear infinite;
+}
+
+.sunDisc {
+  width: calc(var(--plate-w) * 0.036 * var(--sun-scale));
+  background: radial-gradient(closest-side, #fff 0 58%, color-mix(in srgb, var(--sun-color) 60%, #fff) 80%, var(--sun-color) 96%, transparent 100%);
+  box-shadow:
+    0 0 calc(var(--plate-w) * 0.012) color-mix(in srgb, var(--sun-color) 80%, #fff),
+    0 0 calc(var(--plate-w) * 0.04) color-mix(in srgb, var(--sun-color) 60%, transparent);
+}
+
+.moonHalo {
+  width: calc(var(--plate-w) * 0.15);
+  background: radial-gradient(closest-side, var(--halo-color), color-mix(in srgb, var(--halo-color) 26%, transparent) 40%, transparent 72%);
+  animation: breathe 9s ease-in-out infinite;
+}
+
+.moon > .moonDisc {
+  width: calc(var(--plate-w) * 0.04);
+  max-width: none;
+  border-radius: 0;
+  rotate: -18deg;
+  filter: drop-shadow(0 0 calc(var(--plate-w) * 0.004) rgb(214 224 255 / 0.55));
+}
+
+.clouds {
+  inset: 0 0 auto 0;
+  height: 37.5%;
+}
+
+.cloudTile {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 200%;
+  animation: flow-half 300s linear infinite;
+}
+
+.clouds[data-layer="1"] .cloudTile {
+  animation-duration: 190s;
+  animation-delay: -60s;
+}
+
+.cloudImage {
+  position: absolute;
+  inset: 0;
+  background-repeat: repeat-x;
+  background-size: 50% 100%;
+}
+
+.water {
+  inset: 34.514% 0 0 0;
+  overflow: hidden;
+}
+
+.ripples {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 300%;
+  height: 44.54%;
+  background: var(--ripple-color);
+  mask-image: var(--ripple);
+  mask-repeat: repeat-x;
+  mask-size: 16.6667% 100%;
+  -webkit-mask-image: var(--ripple);
+  -webkit-mask-repeat: repeat-x;
+  -webkit-mask-size: 16.6667% 100%;
+  animation: flow-sixth 70s linear infinite;
+}
+
+.ripples[data-layer="1"] {
+  top: 3%;
+  animation-duration: 110s;
+  animation-direction: reverse;
+  animation-delay: -40s;
+}
+
+.column {
+  position: absolute;
+  top: 0;
+  height: 72%;
+  translate: calc(var(--plate-w) * var(--bx) - 50%) 0;
+  background: radial-gradient(50% 100% at 50% 0%, var(--glint-color), transparent 72%);
+  filter: blur(8px);
+}
+
+.column[data-body="sun"] {
+  width: 24%;
+}
+
+.column[data-body="moon"] {
+  width: 9%;
+}
+
+.reflection[data-body="sun"] {
+  scale: 1.7 1;
+}
+
+.reflection {
+  position: absolute;
+  top: 1.5%;
+  width: 0;
+  height: 62%;
+  translate: calc(var(--plate-w) * var(--bx)) 0;
+  mask-image: linear-gradient(180deg, #000 30%, transparent);
+  -webkit-mask-image: linear-gradient(180deg, #000 30%, transparent);
+}
+
+.glint {
+  position: absolute;
+  left: 0;
+  height: 1.5px;
+  border-radius: 2px;
+  background: var(--glint-color);
+  transform: translateX(-50%);
+  animation: glint 4s ease-in-out infinite;
+}
+
+.sweep {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 42%;
+  height: 58%;
+  background: linear-gradient(100deg, transparent, color-mix(in srgb, var(--glint-color) 30%, transparent) 50%, transparent);
+  mask-image: linear-gradient(180deg, transparent, #000 18%, transparent);
+  -webkit-mask-image: linear-gradient(180deg, transparent, #000 18%, transparent);
+  animation: sweep 7s var(--ease-in-out) 1 both;
+}
+
+.mist {
+  left: 0;
+  right: 0;
+  height: 12.5%;
+  top: calc(34.514% - 8.5%);
+}
+
+.mist[data-layer="1"] {
+  top: calc(34.514% - 3.5%);
+}
+
+.mistTile {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 300%;
+  background: var(--mist-color);
+  mask-image: var(--mist);
+  mask-repeat: repeat-x;
+  mask-size: 16.6667% 100%;
+  -webkit-mask-image: var(--mist);
+  -webkit-mask-repeat: repeat-x;
+  -webkit-mask-size: 16.6667% 100%;
+  animation: flow-sixth 120s linear infinite;
+}
+
+.mist[data-layer="1"] .mistTile {
+  animation-duration: 170s;
+  animation-direction: reverse;
+  animation-delay: -50s;
+}
+
+.mote {
+  border-radius: 50%;
+  background: #f1eebc;
+  box-shadow: 0 0 6px 1px rgb(238 240 170 / 0.35);
+  animation-name: wander, glow;
+  animation-timing-function: ease-in-out, ease-in-out;
+  animation-iteration-count: infinite, infinite;
+  animation-direction: alternate, alternate;
+}
+
+.air {
+  inset: 0 0 auto 0;
+  height: 46%;
+}
+
+.streak,
+.petal {
+  position: absolute;
+  left: 0;
+}
+
+.streak {
+  border-radius: 999px;
+  background: linear-gradient(90deg, transparent, var(--glint-color) 38%, transparent);
+  opacity: calc(0.05 + var(--wind, 0) * 0.42);
+  animation: fly 14s linear infinite;
+}
+
+.petal {
+  opacity: calc(var(--wind, 0) * 1.7 * var(--near, 1));
+  animation: drift 14s linear infinite;
+}
+
+.petalSway,
+.petalShape {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.petalSway {
+  animation: sway 3.4s var(--ease-in-out) infinite alternate;
+}
+
+.petalShape {
+  overflow: visible;
+  filter: drop-shadow(0 0 2.5px color-mix(in srgb, var(--glint-color) 45%, transparent));
+  animation: tumble 4s linear infinite;
+}
+
+.petalShape path {
+  fill: url(#rv-petal);
+}
+
+.petalInk {
+  position: absolute;
+  width: 0;
+  height: 0;
+}
+
+.petalTip {
+  stop-color: color-mix(in srgb, #fffafc 88%, var(--glint-color));
+}
+
+.petalBody {
+  stop-color: color-mix(in srgb, #ffdde8 84%, var(--glint-color));
+}
+
+.petalBase {
+  stop-color: color-mix(in srgb, #f4acc4 82%, var(--glint-color));
+}
+
+.vignette {
+  inset: 0;
+  background: radial-gradient(120% 100% at 50% 40%, transparent 55%, rgb(0 0 0 / 0.34) 100%);
+}
+
+:global(:root[data-theme="light"]) .vignette,
+.vignette[data-bright] {
+  background: radial-gradient(120% 100% at 50% 40%, transparent 60%, rgb(60 70 120 / 0.14) 100%);
+}
+
+[data-scene="plain"] .vignette {
+  display: none;
+}
+
+.noise {
+  inset: 0;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.9 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 160px 160px;
+}
+
+@keyframes twinkle {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.25;
+  }
+}
+
+@keyframes drift {
+  from {
+    transform: translate3d(-1.5%, -1%, 0) scale(1);
+  }
+  to {
+    transform: translate3d(1.5%, 1%, 0) scale(1.06);
+  }
+}
+
+@keyframes meteor {
+  0% {
+    opacity: 0;
+    translate: 0 0;
+  }
+  1.500% {
+    opacity: 1;
+  }
+  5% {
+    opacity: 0;
+    translate: -340px 180px;
+  }
+  100% {
+    opacity: 0;
+    translate: -340px 180px;
+  }
+}
+
+@keyframes meteor-once {
+  0% {
+    opacity: 0;
+    translate: 0 0;
+  }
+  18% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    translate: -380px 200px;
+  }
+}
+
+@keyframes flow-half {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+@keyframes flow-sixth {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-16.6667%, 0, 0);
+  }
+}
+
+@keyframes spin {
+  to {
+    rotate: 360deg;
+  }
+}
+
+@keyframes sweep {
+  from {
+    opacity: 0;
+    transform: translate3d(240%, 0, 0);
+  }
+  30% {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+    transform: translate3d(-110%, 0, 0);
+  }
+}
+
+@keyframes drift {
+  from {
+    transform: translate3d(calc(var(--plate-w) * 1.04), 0, 0);
+  }
+  to {
+    transform: translate3d(calc(var(--plate-w) * -0.08), var(--drop), 0);
+  }
+}
+
+@keyframes sway {
+  from {
+    transform: translate3d(0, calc(var(--sway) * -1), 0);
+  }
+  to {
+    transform: translate3d(0, var(--sway), 0);
+  }
+}
+
+@keyframes tumble {
+  from {
+    transform: rotate(var(--lean)) rotate3d(0.75, 0.5, 0.25, 0deg);
+  }
+  to {
+    transform: rotate(var(--lean)) rotate3d(0.75, 0.5, 0.25, 360deg);
+  }
+}
+
+@keyframes fly {
+  from {
+    transform: translate3d(calc(var(--plate-w) * 1.04), 0, 0) rotate(0deg);
+  }
+  to {
+    transform: translate3d(calc(var(--plate-w) * -0.08), var(--drop), 0) rotate(var(--turn));
+  }
+}
+
+@keyframes glint {
+  0%,
+  100% {
+    opacity: 0.1;
+    scale: 0.5 1;
+  }
+  50% {
+    opacity: 1;
+    scale: 1 1;
+  }
+}
+
+@keyframes wander {
+  from {
+    translate: 0 0;
+  }
+  to {
+    translate: var(--sway) var(--rise);
+  }
+}
+
+@keyframes glow {
+  from {
+    opacity: 0.05;
+  }
+  to {
+    opacity: 0.9;
+  }
+}
+
+@keyframes breathe {
+  0%,
+  100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+}

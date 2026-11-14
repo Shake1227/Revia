@@ -1,0 +1,46 @@
+.page {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-bottom: 96px;
+}
+
+.content {
+  padding: 8px 8px 0;
+}
+
+.search {
+  width: 250px;
+}
+
+.scanning {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--accent);
+}
+
+.spinning {
+  animation: global(rv-spin) 0.9s linear infinite;
+}
+
+@media (max-width: 1040px) {
+  .search {
+    width: 180px;
+  }
+}
+
+@media (max-width: 880px) {
+  .search {
+    width: 140px;
+  }
+}

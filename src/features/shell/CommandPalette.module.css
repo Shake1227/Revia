@@ -1,0 +1,141 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  background: var(--bg-scrim);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+}
+
+.positioner {
+  position: fixed;
+  inset: 0;
+  z-index: 71;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 14vh 20px 20px;
+  pointer-events: none;
+}
+
+.palette {
+  pointer-events: auto;
+  width: 100%;
+  max-width: 580px;
+  border-radius: var(--radius-xl);
+  background: var(--bg-overlay);
+  backdrop-filter: blur(34px) saturate(170%);
+  -webkit-backdrop-filter: blur(34px) saturate(170%);
+  border: 1px solid var(--line-3);
+  box-shadow:
+    var(--shadow-lg),
+    var(--inner-light),
+    0 0 80px -30px color-mix(in srgb, var(--brand-2) 60%, transparent);
+  overflow: hidden;
+}
+
+.inputRow {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  height: 52px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--line-1);
+  color: var(--text-3);
+}
+
+.input {
+  flex: 1;
+  min-width: 0;
+  background: none;
+  border: 0;
+  outline: none;
+  font-size: var(--text-lg);
+  color: var(--text-1);
+}
+
+.input::placeholder {
+  color: var(--text-4);
+}
+
+.list {
+  max-height: min(380px, 52vh);
+  overflow-y: auto;
+  padding: 6px;
+  scroll-padding: 34px 0 6px;
+}
+
+.empty {
+  padding: 28px 0;
+  font-size: var(--text-sm);
+  color: var(--text-3);
+  text-align: center;
+}
+
+.group :global([cmdk-group-heading]) {
+  padding: 8px 10px 4px;
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-medium);
+  letter-spacing: 0.08em;
+  color: var(--text-3);
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  height: 34px;
+  padding: 0 10px;
+  border-radius: var(--radius-md);
+  font-size: var(--text-md);
+  color: var(--text-1);
+  cursor: default;
+}
+
+.item[data-selected="true"] {
+  background: var(--surface-3);
+}
+
+.icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  color: var(--text-3);
+  flex-shrink: 0;
+}
+
+.item[data-selected="true"] .icon {
+  color: var(--text-1);
+}
+
+.label {
+  flex-shrink: 0;
+  max-width: 60%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hint {
+  flex: 1;
+  font-size: var(--text-xs);
+  color: var(--text-3);
+  text-align: right;
+}
+
+.footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 16px;
+  padding: 8px 14px;
+  border-top: 1px solid var(--line-1);
+  font-size: var(--text-xs);
+  color: var(--text-3);
+}
+
+.footer span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}

@@ -1,0 +1,58 @@
+.root {
+  display: inline-flex;
+  padding: 2px;
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  box-shadow: inset 0 0 0 1px var(--line-1);
+}
+
+.option {
+  position: relative;
+  height: 26px;
+  padding: 0 11px;
+  border-radius: calc(var(--radius-md) - 2px);
+  color: var(--text-3);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  transition: color var(--dur-2) var(--ease-out);
+}
+
+.sm .option {
+  height: 22px;
+  padding: 0 9px;
+  font-size: var(--text-xs);
+}
+
+.option:hover:not(:disabled) {
+  color: var(--text-1);
+}
+
+.option[data-selected] {
+  color: var(--text-1);
+}
+
+.option:disabled {
+  opacity: 0.4;
+}
+
+.pill {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--surface-4);
+  box-shadow:
+    var(--inner-light),
+    var(--shadow-sm);
+}
+
+:global(:root[data-theme="light"]) .pill {
+  background: var(--bg-raised);
+}
+
+.content {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}

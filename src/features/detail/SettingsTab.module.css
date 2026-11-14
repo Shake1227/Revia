@@ -1,0 +1,132 @@
+.tab {
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+  max-width: 720px;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sectionHead h3 {
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+  color: var(--text-1);
+}
+
+.sectionHead p {
+  margin-top: 3px;
+  font-size: var(--text-sm);
+  line-height: 1.65;
+  color: var(--text-3);
+}
+
+.sectionBody {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: var(--radius-lg);
+  background: var(--surface-1);
+  box-shadow: inset 0 0 0 1px var(--line-1);
+}
+
+.section[data-tone="danger"] .sectionBody {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--danger) 18%, transparent);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  min-height: 30px;
+}
+
+.row + .row {
+  padding-top: 12px;
+  border-top: 1px solid var(--line-1);
+}
+
+.rowText {
+  min-width: 0;
+}
+
+.rowLabel {
+  font-size: var(--text-md);
+  color: var(--text-1);
+}
+
+.rowHint {
+  margin-top: 1px;
+  font-size: var(--text-xs);
+  line-height: 1.6;
+  color: var(--text-3);
+}
+
+.rowControl {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.remotes {
+  display: flex;
+  flex-direction: column;
+}
+
+.remote {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+}
+
+.remote + .remote {
+  border-top: 1px solid var(--line-1);
+}
+
+.remoteIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 9px;
+  background: var(--surface-2);
+  color: var(--text-2);
+  flex-shrink: 0;
+}
+
+.remoteMain {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.remoteName {
+  font-size: 12.5px;
+  color: var(--text-1);
+}
+
+.remoteUrl {
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+
+.inlineActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
