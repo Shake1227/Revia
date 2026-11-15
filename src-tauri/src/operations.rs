@@ -72,6 +72,12 @@ impl Core {
                 }
                 "pull" => {
                     let mode = text(item, "mode")?;
+                    if !(item["prefer"].is_null()
+                        || (mode == "merge"
+                            && matches!(item["prefer"].as_str(), Some("local" | "remote"))))
+                    {
+                        return Err(AppError::new("invalid_input"));
+                    }
                     if !matches!(mode, "ff_only" | "merge" | "rebase")
                         || (start && mode != "ff_only" && item["fingerprint"].as_str().is_none())
                     {
@@ -325,11 +331,13 @@ impl Core {
             steps.push(json!({"code":"fetch"}));
         }
         if kind == "pull" && !pull["target"].is_null() && s["behind"].as_u64().unwrap_or(0) > 0 {
-            steps.push(pull_step(
+            let mut step = pull_step(
                 &pull["target"],
                 item["mode"].as_str().unwrap(),
                 s["behind"].as_u64().unwrap_or(0),
-            ));
+            );
+            step["prefer"] = item["prefer"].clone();
+            steps.push(step);
         }
         if kind == "sync" {
             let behind = s["behind"].as_u64().unwrap_or(0);
@@ -443,7 +451,11 @@ impl Core {
                 .merge_conflicts(root, "HEAD", &status::tracking(&pull["target"]))
                 .await;
             if conflicts["status"] == "conflicts" {
-                warnings.push(json!({"code":"conflicts_likely","paths":conflicts["paths"]}));
+                warnings.push(if item["prefer"].is_string() {
+                    json!({"code":"conflicts_resolved","prefer":item["prefer"],"paths":conflicts["paths"]})
+                } else {
+                    json!({"code":"conflicts_likely","paths":conflicts["paths"]})
+                });
             }
         }
         if kind == "sync" && diverged && merges && pull["target"]["exists"] == true {
@@ -1049,9 +1061,15 @@ impl Core {
                     return Ok(());
                 }
                 self.step_event(op, index, item, "pull");
-                let args = match mode {
-                    "ff_only" => vec!["merge", "--ff-only", &reference],
-                    "merge" => vec!["merge", "--no-edit", &reference],
+                let args = match (mode, input["prefer"].as_str()) {
+                    ("ff_only", _) => vec!["merge", "--ff-only", &reference],
+                    ("merge", Some("local")) => {
+                        vec!["merge", "--no-edit", "-X", "ours", &reference]
+                    }
+                    ("merge", Some("remote")) => {
+                        vec!["merge", "--no-edit", "-X", "theirs", &reference]
+                    }
+                    ("merge", _) => vec!["merge", "--no-edit", &reference],
                     _ => vec!["rebase", &reference],
                 };
                 if local_before.as_ref() != self.local_guard(&root).await.ok().as_ref() {
@@ -1060,7 +1078,11 @@ impl Core {
                 }
                 let result = g.local_write(&root, &args).await;
                 match result {
-                    Ok(_) => completed(item, pull_step(target, mode, behind)),
+                    Ok(_) => {
+                        let mut step = pull_step(target, mode, behind);
+                        step["prefer"] = input["prefer"].clone();
+                        completed(item, step);
+                    }
                     Err(e) => {
                         if matches!(e.code.as_str(), "repo_locked" | "timeout") {
                             return Err(e);

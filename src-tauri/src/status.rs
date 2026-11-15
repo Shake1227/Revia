@@ -350,11 +350,17 @@ pub async fn read(
             Some(b'?') => ("untracked", ".."),
             _ => continue,
         };
+        let path = match r.as_bytes().first() {
+            Some(b'1') => r.splitn(9, ' ').nth(8),
+            Some(b'2') => r.splitn(10, ' ').nth(9),
+            Some(b'u') => r.splitn(11, ' ').nth(10),
+            _ => r.get(2..),
+        };
         if r.starts_with('2') {
             records.next();
         }
         files.push(
-            json!({"kind":kind,"staged":xy.as_bytes()[0]!=b'.',"unstaged":xy.as_bytes()[1]!=b'.'}),
+            json!({"kind":kind,"path":path,"staged":xy.as_bytes()[0]!=b'.',"unstaged":xy.as_bytes()[1]!=b'.'}),
         );
     }
     let conflicts = files.iter().filter(|f| f["kind"] == "conflicted").count();
@@ -451,6 +457,27 @@ pub async fn read(
     } else {
         None
     };
+    let divergence = if behind.unwrap_or(0) > 0 && (ahead.unwrap_or(0) > 0 || !files.is_empty()) {
+        let mut local_at = if ahead.unwrap_or(0) > 0 {
+            commit_time(g, p, "HEAD").await
+        } else {
+            None
+        };
+        for file in files.iter().take(500) {
+            if let Some(at) = file["path"]
+                .as_str()
+                .and_then(|path| fs::symlink_metadata(p.join(path)).ok())
+                .and_then(|m| m.modified().ok())
+                .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                .map(|d| d.as_millis() as u64)
+            {
+                local_at = Some(local_at.map_or(at, |current: u64| current.max(at)));
+            }
+        }
+        json!({"localAt":local_at,"remoteAt":commit_time(g, p, &tracking(&pull["target"])).await})
+    } else {
+        Value::Null
+    };
     let dir = git_dir(g, p).await;
     let progress = dir.as_deref().and_then(operation_at);
     let state = if conflicts > 0 {
@@ -495,6 +522,7 @@ pub async fn read(
     v["targets"] = json!({"push":push,"pull":pull});
     v["ahead"] = json!(ahead);
     v["behind"] = json!(behind);
+    v["divergence"] = divergence;
     v["inProgress"] = json!(progress);
     v["remotes"] = json!(remotes);
     v["github"] = github;
@@ -518,6 +546,13 @@ pub async fn read(
     Ok(v)
 }
 
+async fn commit_time(g: &Git, p: &Path, reference: &str) -> Option<u64> {
+    g.local(p, &["log", "-1", "--format=%ct", reference, "--"])
+        .await
+        .ok()
+        .and_then(|s| s.trim().parse::<u64>().ok())
+        .map(|s| s * 1000)
+}
 pub fn empty() -> Value {
-    json!({"state":"unknown","branch":null,"detached":false,"unborn":false,"headSha":null,"upstream":null,"targets":{"push":{"target":null,"saved":null,"savedInvalid":null},"pull":{"target":null,"saved":null,"savedInvalid":null}},"ahead":null,"behind":null,"changes":{"staged":0,"unstaged":0,"untracked":0,"conflicted":0,"total":0},"inProgress":null,"remotes":[],"github":null,"remoteError":Option::<String>::None,"lastCommitAt":null,"checkedAt":crate::now(),"fetchedAt":Option::<u64>::None,"error":null})
+    json!({"state":"unknown","branch":null,"detached":false,"unborn":false,"headSha":null,"upstream":null,"targets":{"push":{"target":null,"saved":null,"savedInvalid":null},"pull":{"target":null,"saved":null,"savedInvalid":null}},"ahead":null,"behind":null,"divergence":null,"changes":{"staged":0,"unstaged":0,"untracked":0,"conflicted":0,"total":0},"inProgress":null,"remotes":[],"github":null,"remoteError":Option::<String>::None,"lastCommitAt":null,"checkedAt":crate::now(),"fetchedAt":Option::<u64>::None,"error":null})
 }

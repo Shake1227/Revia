@@ -74,6 +74,8 @@ React（`src/`）と Rust（`src-tauri/`）の境界を定める。型は [src/i
 
 `ahead` は Push 先、`behind` は Pull 元との差。比較対象のリモート追跡ブランチがなければ `null`。
 
+`divergence` は、Pull 元に新しいコミットがあり（`behind > 0`）、手元にも新しいコミットか未コミットの変更がある場合だけ入れ、それ以外は `null`。`localAt` は、手元の新しいコミット（`ahead > 0` のとき HEAD）のコミット日時と、変更のあるファイル（先頭 500 件）の更新日時のうち最も新しいもの。`remoteAt` は Pull 元の先頭のコミット日時。どちらも求められなければ `null`。UI はこの 2 つを比べ、1 分以上新しい側を「おすすめ」として示す（日時は各コンピューターの時計による）。
+
 Revia の保存設定と Git の upstream は別物として扱う。`set_branch_target` は Revia の設定だけを変え、Git の設定には触れない。Git の追跡設定を変えるのは `set_upstream` と、`push` の `setUpstream = true` だけ。
 
 ## 5. Git の実行規約
@@ -176,7 +178,7 @@ Fetch / Pull / Push / Commit / 同期 / Merge / 公開 / Clone は、単体で�
 
 **fetch** — すべてのリモートを取得する（`--prune` はしない）。リモートがなければ `needs_confirmation`（`no_remote`）。一部のリモートが失敗しても残りは取得し、1 つでも失敗があれば最初のエラーで `failed` にする（`completed` に fetch は入れない）。
 
-**pull** — Pull 元は解決済みの `targets.pull`。未解決なら `needs_confirmation`（`target_unresolved` / `target_invalid`）。取得してから: 既に最新なら `skipped`。`ff_only` は fast-forward できなければ `needs_confirmation`（`diverged`）。`merge` は `git merge`、競合したら `conflict`。`rebase` は `git rebase`、競合したら `conflict`。`merge` / `rebase` は未コミットの変更があれば実行せず `needs_confirmation`（`dirty_worktree`）。Detached HEAD・途中の操作あり・未解決の競合ありも `needs_confirmation`。
+**pull** — Pull 元は解決済みの `targets.pull`。`prefer`（`"local"` / `"remote"`、省略は `null`）は `mode = "merge"` のときだけ指定でき、`-X ours` / `-X theirs` を付けて Merge する（重なった箇所は手元 / リモートの内容を採る）。ほかの `mode` に付けたら `invalid_input`。プレビューの Pull の手順に `prefer` を入れ、競合の見込みは `conflicts_resolved` で示す。未解決なら `needs_confirmation`（`target_unresolved` / `target_invalid`）。取得してから: 既に最新なら `skipped`。`ff_only` は fast-forward できなければ `needs_confirmation`（`diverged`）。`merge` は `git merge`、競合したら `conflict`。`rebase` は `git rebase`、競合したら `conflict`。`merge` / `rebase` は未コミットの変更があれば実行せず `needs_confirmation`（`dirty_worktree`）。Detached HEAD・途中の操作あり・未解決の競合ありも `needs_confirmation`。
 
 **push** — Push 先は `targets.push`。通常は `git push <remote> <local>:<branch>`。`setUpstream = true` で `-u`。リモート側が進んでいて拒否されたら `failed`（`push_rejected`）。`force = true` は `--force-with-lease=<branch>:<プレビュー時のリモート SHA>` のみ使い、`safety.allowForcePush = false` なら `needs_confirmation`（`feature_disabled`）。`--force` は使わない。Push するコミットがなければ `skipped`。
 

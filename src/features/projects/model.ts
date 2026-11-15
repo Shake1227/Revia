@@ -1,5 +1,5 @@
 import type { Messages } from "../../i18n";
-import type { OperationRequest, Project, SyncState } from "../../ipc/types";
+import type { Divergence, OperationRequest, PreferSide, Project, SyncState } from "../../ipc/types";
 import { displayPath } from "../../lib/path";
 import type { SortKey, SummaryFilter } from "../../stores/app";
 
@@ -114,6 +114,12 @@ export type PrimaryAction =
   | { type: "dialog"; label: string; hint: string; dialog: "publish" | "diverged" | "target" | "login"; emphasis: boolean }
   | { type: "refresh"; label: string; hint: string; emphasis: boolean }
   | null;
+
+export function newerSide(divergence: Divergence | null | undefined): PreferSide | null {
+  if (!divergence?.localAt || !divergence.remoteAt) return null;
+  if (Math.abs(divergence.localAt - divergence.remoteAt) < 60_000) return null;
+  return divergence.localAt > divergence.remoteAt ? "local" : "remote";
+}
 
 export function primaryAction(project: Project, m: Messages): PrimaryAction {
   const status = project.status;

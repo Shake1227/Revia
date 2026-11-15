@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Button } from "../../components/Button";
 import { Dialog } from "../../components/Dialog";
 import { ErrorNote, Note } from "../../components/ErrorNote";
@@ -8,7 +8,8 @@ import { Select } from "../../components/Select";
 import { Spinner } from "../../components/Spinner";
 import { useT } from "../../i18n";
 import { api } from "../../ipc/client";
-import type { MergeMode, PullMode } from "../../ipc/types";
+import type { MergeMode, PreferSide } from "../../ipc/types";
+import { relativeTime } from "../../lib/time";
 import { notifyError } from "../../lib/notify";
 import { useGithubStore } from "../../stores/github";
 import { useOperationStore } from "../../stores/operations";
@@ -16,6 +17,7 @@ import { useProjectStore } from "../../stores/projects";
 import { toast } from "../../stores/toasts";
 import { useAsync } from "../detail/hooks";
 import { TargetEditor } from "../detail/TargetEditor";
+import { newerSide } from "../projects/model";
 import styles from "./dialogs.module.css";
 
 export function BatchMergeDialog({ projectIds, onClose }: { projectIds: string[] | null; onClose: () => void }) {
@@ -83,30 +85,41 @@ export function BatchMergeDialog({ projectIds, onClose }: { projectIds: string[]
   );
 }
 
+type DivergedChoice = "merge" | "prefer_local" | "prefer_remote" | "rebase";
+
+const CHOICE_PREFER: Record<DivergedChoice, PreferSide | null> = { merge: null, prefer_local: "local", prefer_remote: "remote", rebase: null };
+
 export function DivergedDialog({ projectId, onClose }: { projectId: string | null; onClose: () => void }) {
   const m = useT();
+  const t = m.divergedChoice;
   const [shownId, setShownId] = useState<string | null>(null);
   const id = projectId ?? shownId;
   const project = useProjectStore((state) => (id ? state.byId[id] : undefined));
   const prepare = useOperationStore((state) => state.prepare);
-  const [mode, setMode] = useState<Exclude<PullMode, "ff_only">>("merge");
+  const [choice, setChoice] = useState<DivergedChoice>("merge");
 
   useEffect(() => {
     if (!projectId) return;
     setShownId(projectId);
-    const preferred = useProjectStore.getState().byId[projectId]?.settings.pullMode;
-    setMode(preferred === "rebase" ? "rebase" : "merge");
+    const current = useProjectStore.getState().byId[projectId];
+    const newer = newerSide(current?.status?.divergence);
+    setChoice(newer ? `prefer_${newer}` : current?.settings.pullMode === "rebase" ? "rebase" : "merge");
   }, [projectId]);
 
   const status = project?.status;
+  const divergence = status?.divergence ?? null;
+  const newer = newerSide(divergence);
+  const recommended: DivergedChoice | null = newer ? `prefer_${newer}` : null;
   const submit = () => {
     if (!id) return;
     onClose();
-    void prepare({ kind: "pull", items: [{ itemId: id, projectId: id, mode }] });
+    void prepare({ kind: "pull", items: [{ itemId: id, projectId: id, mode: choice === "rebase" ? "rebase" : "merge", prefer: CHOICE_PREFER[choice] }] });
   };
-  const options: { value: Exclude<PullMode, "ff_only">; title: string; body: string }[] = [
-    { value: "merge", title: m.settingsProject.pullModes.merge, body: m.merge.mode.no_ffHint },
-    { value: "rebase", title: m.settingsProject.pullModes.rebase, body: m.settingsProject.rebaseHint },
+  const options: { value: DivergedChoice; title: string; body: string; icon: ReactNode }[] = [
+    { value: "prefer_local", title: m.settings.sync.divergedOptions.prefer_local, body: t.preferLocal, icon: <Icons.monitor size={17} /> },
+    { value: "prefer_remote", title: m.settings.sync.divergedOptions.prefer_remote, body: t.preferRemote, icon: <Icons.cloud size={17} /> },
+    { value: "merge", title: m.settings.sync.divergedOptions.merge, body: m.settings.sync.divergedHints.merge, icon: <Icons.merge size={17} /> },
+    { value: "rebase", title: m.settingsProject.pullModes.rebase, body: m.settingsProject.rebaseHint, icon: <Icons.arrowDownUp size={17} /> },
   ];
 
   return (
@@ -128,15 +141,32 @@ export function DivergedDialog({ projectId, onClose }: { projectId: string | nul
       }
     >
       <div className={styles.options} role="radiogroup">
+        {divergence && (
+          <div className={styles.freshness}>
+            <div className={styles.freshnessSide} data-newer={newer === "local" || undefined}>
+              <span className={styles.freshnessLabel}>{t.local}</span>
+              <span className={styles.freshnessTime}>{divergence.localAt ? relativeTime(divergence.localAt, m) : t.unknown}</span>
+            </div>
+            <div className={styles.freshnessSide} data-newer={newer === "remote" || undefined}>
+              <span className={styles.freshnessLabel}>{t.remote}</span>
+              <span className={styles.freshnessTime}>{divergence.remoteAt ? relativeTime(divergence.remoteAt, m) : t.unknown}</span>
+            </div>
+            <p className={styles.freshnessNote}>{newer ? t.newer[newer] : t.same}</p>
+          </div>
+        )}
         {options.map((option) => (
-          <button key={option.value} type="button" role="radio" aria-checked={mode === option.value} className={styles.option} data-selected={mode === option.value || undefined} onClick={() => setMode(option.value)}>
-            <span className={styles.optionIcon}>{option.value === "merge" ? <Icons.merge size={17} /> : <Icons.arrowDownUp size={17} />}</span>
+          <button key={option.value} type="button" role="radio" aria-checked={choice === option.value} className={styles.option} data-selected={choice === option.value || undefined} onClick={() => setChoice(option.value)}>
+            <span className={styles.optionIcon}>{option.icon}</span>
             <span className={styles.optionText}>
-              <span className={styles.optionTitle}>{option.title}</span>
+              <span className={styles.optionTitle}>
+                {option.title}
+                {recommended === option.value && <span className={styles.recommended}>{t.recommended}</span>}
+              </span>
               <p className={styles.optionBody}>{option.body}</p>
             </span>
           </button>
         ))}
+        {newer && <p className={styles.freshnessCaveat}>{t.caveat}</p>}
         {(status?.changes.total ?? 0) > 0 && <Note tone="warning">{m.merge.dirtyBlock}</Note>}
       </div>
     </Dialog>

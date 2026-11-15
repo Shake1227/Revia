@@ -15,8 +15,10 @@ import { useT } from "../../i18n";
 import type { OperationItem, OperationKind, OperationRequest, OperationSnapshot, PlanItem } from "../../ipc/types";
 import { useAppStore } from "../../stores/app";
 import { isTerminal, resolveBlocker, useOperationStore } from "../../stores/operations";
+import { relativeTime } from "../../lib/time";
 import { useProjectStore } from "../../stores/projects";
 import { useUiStore } from "../../stores/ui";
+import { newerSide } from "../projects/model";
 import { resultText, stepChip, stepDetail, warningText } from "./describe";
 import styles from "./OperationSheet.module.css";
 
@@ -32,7 +34,11 @@ function PlanRow({ item, kind, onResolve }: { item: PlanItem; kind: OperationKin
   const m = useT();
   const name = useItemName(item.projectId, item.itemId);
   const project = useProjectStore((state) => (item.projectId ? state.byId[item.projectId] : undefined));
+  const policy = useAppStore((state) => state.settings?.general.sync.diverged);
   const steps = item.steps;
+  const divergence = kind === "sync" ? (project?.status?.divergence ?? null) : null;
+  const newer = newerSide(divergence);
+  const mismatch = newer !== null && ((newer === "local" && policy === "prefer_remote") || (newer === "remote" && policy === "prefer_local"));
   return (
     <li className={styles.row} data-disabled={!item.executable || undefined}>
       <StatusGlyph state={project?.status?.state ?? null} size="sm" />
@@ -78,6 +84,16 @@ function PlanRow({ item, kind, onResolve }: { item: PlanItem; kind: OperationKin
               </span>
             </p>
           ))}
+        {divergence && newer && (
+          <p className={styles.warning} data-severe={mismatch || undefined}>
+            <Icons.clock size={12} />
+            <span>
+              {mismatch
+                ? m.divergedChoice.syncMismatch(newer)
+                : m.divergedChoice.syncNewer(newer, relativeTime(divergence.localAt, m), relativeTime(divergence.remoteAt, m))}
+            </span>
+          </p>
+        )}
       </div>
       {!item.executable && item.projectId && item.blocker && item.blocker !== "nothing_to_do" && (
         <Button

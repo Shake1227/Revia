@@ -1193,6 +1193,22 @@ export const ja = {
     },
   },
 
+  divergedChoice: {
+    local: "手元の最新の変更",
+    remote: "リモートの最新の変更",
+    unknown: "不明",
+    newer: { local: "手元の方が新しい変更です", remote: "リモートの方が新しい変更です" } satisfies Record<PreferSide, string>,
+    same: "どちらが新しいかは判断できません",
+    recommended: "おすすめ",
+    preferLocal: "リモートの変更もMergeします。同じ箇所を両方で変えていた場合は、手元の内容を残します。",
+    preferRemote: "手元の変更もMergeします。同じ箇所を両方で変えていた場合は、リモートの内容を採ります。",
+    caveat: "日時は、それぞれのコンピューターの時計で記録されたものです。手元の日時には、まだコミットしていない変更も含みます。",
+    syncNewer: (side: PreferSide, local: string, remote: string) =>
+      `${side === "local" ? "手元" : "リモート"}の方が新しい変更です（手元 ${local}・リモート ${remote}）`,
+    syncMismatch: (side: PreferSide) =>
+      `設定では${side === "local" ? "リモート" : "手元"}を優先しますが、${side === "local" ? "手元" : "リモート"}の方が新しい変更です`,
+  },
+
   excluded: {
     title: "除外したフォルダ",
     subtitle: "一覧に表示しないフォルダです。一覧に戻すと、もう一度プロジェクトとして表示します。",
@@ -1332,7 +1348,7 @@ export const ja = {
         prefer_remote: "両方を取り込み、重なりはリモートを優先",
       } satisfies Record<DivergedPolicy, string>,
       divergedHints: {
-        stop: "何も変えずに止めます。プロジェクトごとに取り込み方を選んでください。",
+        stop: "何も変えずに止めます。プロジェクトごとに取り込み方を選べます（変更が新しい方を「おすすめ」として示します）。",
         merge: "リモートの変更をMergeしてからPushします。同じ箇所を両方で変えていたら、競合として止めます。",
         prefer_local:
           "リモートの変更をMergeしてからPushします。同じ箇所を両方で変えていた場合は、手元の内容を残します。リモート側のその部分は、履歴には残りますがファイルには反映されません。",

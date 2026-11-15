@@ -130,6 +130,7 @@ export interface ProjectStatus {
   targets: BranchTargets;
   ahead: number | null;
   behind: number | null;
+  divergence: Divergence | null;
   changes: ChangeCounts;
   inProgress: InProgressKind | null;
   remotes: RemoteInfo[];
@@ -139,6 +140,11 @@ export interface ProjectStatus {
   checkedAt: Timestamp;
   fetchedAt: Timestamp | null;
   error: AppError | null;
+}
+
+export interface Divergence {
+  localAt: Timestamp | null;
+  remoteAt: Timestamp | null;
 }
 
 export type PullMode = "ff_only" | "merge" | "rebase";
@@ -441,6 +447,7 @@ export type SyncItem = ProjectItemBase;
 
 export interface PullItem extends ProjectItemBase {
   mode: PullMode;
+  prefer?: PreferSide | null;
 }
 
 export interface PushItem extends ProjectItemBase {

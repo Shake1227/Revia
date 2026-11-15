@@ -149,7 +149,11 @@ dto!(GithubRepoRef {
     url: String
 });
 dto!(RemoteInfo{name:String,fetch_url:String,push_url:String,github:Option<GithubRepoRef>});
-dto!(ProjectStatus{state:SyncState,branch:Option<String>,detached:bool,unborn:bool,head_sha:Option<String>,upstream:Option<RemoteRef>,targets:BranchTargets,ahead:Option<u64>,behind:Option<u64>,changes:ChangeCounts,in_progress:Option<InProgressKind>,remotes:Vec<RemoteInfo>,github:Option<GithubRepoRef>,remote_error:Option<RemoteErrorKind>,last_commit_at:Option<u64>,checked_at:u64,fetched_at:Option<u64>,error:Option<crate::error::AppError>});
+dto!(Divergence {
+    local_at: Option<u64>,
+    remote_at: Option<u64>
+});
+dto!(ProjectStatus{state:SyncState,branch:Option<String>,detached:bool,unborn:bool,head_sha:Option<String>,upstream:Option<RemoteRef>,targets:BranchTargets,ahead:Option<u64>,behind:Option<u64>,divergence:Option<Divergence>,changes:ChangeCounts,in_progress:Option<InProgressKind>,remotes:Vec<RemoteInfo>,github:Option<GithubRepoRef>,remote_error:Option<RemoteErrorKind>,last_commit_at:Option<u64>,checked_at:u64,fetched_at:Option<u64>,error:Option<crate::error::AppError>});
 dto!(BranchTargetSetting{push:Option<RemoteRef>,pull:Option<RemoteRef>});
 dto!(ProjectSettings{favorite:bool,include_in_batch:bool,default_remote:Option<String>,default_branch:Option<String>,pull_mode:PullMode,branch_targets:BTreeMap<String,BranchTargetSetting>});
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -221,7 +225,7 @@ dto!(ConflictFile {
 });
 dto!(ConflictState{operation:Option<InProgressKind>,incoming:Option<String>,files:Vec<ConflictFile>,can_continue:bool});
 dto!(ProjectItem{item_id:String,project_id:String,fingerprint:Option<String>});
-dto!(PullItem{item_id:String,project_id:String,fingerprint:Option<String>,mode:PullMode});
+dto!(PullItem{item_id:String,project_id:String,fingerprint:Option<String>,mode:PullMode,prefer:Option<PreferSide>});
 dto!(PushItem{item_id:String,project_id:String,fingerprint:Option<String>,force:bool,set_upstream:bool});
 dto!(CommitItem{item_id:String,project_id:String,fingerprint:Option<String>,message:String,paths:Option<Vec<String>>});
 dto!(MergeItem{item_id:String,project_id:String,fingerprint:Option<String>,source:String,target:String,mode:MergeMode});

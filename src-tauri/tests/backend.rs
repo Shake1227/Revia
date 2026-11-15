@@ -621,6 +621,81 @@ async fn sync_commits_overlapping_changes_before_taking_remote_work() {
     }
 }
 #[tokio::test]
+async fn divergence_times_and_pull_with_a_preferred_side() {
+    for side in ["local", "remote"] {
+        let f = Fixture::new();
+        let p = f.repo("repo");
+        let bare = f.remote(&p);
+        let other = f.clone_repo(&bare, "other");
+        let id = f.add(&p).await;
+        assert!(f.state(&id).await["divergence"].is_null());
+        std::fs::write(other.join("base.txt"), "remote\n").unwrap();
+        f.run(&other, &["add", "--", "base.txt"]);
+        let old = Command::new(&f.git.executable)
+            .current_dir(&other)
+            .envs(&f.git.env)
+            .env("GIT_COMMITTER_DATE", "2020-01-01T00:00:00Z")
+            .args(["commit", "-m", "old remote change"])
+            .output()
+            .unwrap();
+        assert!(old.status.success());
+        f.run(&other, &["push"]);
+        f.run(&p, &["fetch"]);
+        std::fs::write(p.join("base.txt"), "local\n").unwrap();
+        let dirty = f.state(&id).await["divergence"].clone();
+        assert_eq!(dirty["remoteAt"], 1_577_836_800_000u64);
+        assert!(dirty["localAt"].as_u64().unwrap() > 1_577_836_800_000);
+        f.run(&p, &["commit", "-am", "local change"]);
+        let state = f.state(&id).await;
+        assert_eq!(state["state"], "diverged");
+        let divergence = &state["divergence"];
+        assert!(divergence["localAt"].as_u64().unwrap() > divergence["remoteAt"].as_u64().unwrap());
+        for bad in [
+            json!({"mode":"ff_only","prefer":side}),
+            json!({"mode":"rebase","prefer":side}),
+            json!({"mode":"merge","prefer":"both"}),
+        ] {
+            let mut item = json!({"itemId":id,"projectId":id,"fingerprint":"x"});
+            for (k, v) in bad.as_object().unwrap() {
+                item[k] = v.clone();
+            }
+            assert_eq!(
+                f.core
+                    .start(json!({"kind":"pull","items":[item]}))
+                    .await
+                    .unwrap_err()
+                    .code,
+                "invalid_input"
+            );
+        }
+        let request = json!({"kind":"pull","items":[{"itemId":id,"projectId":id,"mode":"merge","prefer":side}]});
+        let plan = f.core.plan(request).await.unwrap();
+        let _: revia_lib::dto::OperationPlan = serde_json::from_value(plan.clone()).unwrap();
+        let planned = &plan["items"][0];
+        assert_eq!(planned["steps"][1]["prefer"], side);
+        assert!(
+            planned["warnings"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|w| w["code"] == "conflicts_resolved" && w["prefer"] == side)
+        );
+        let item = f
+            .op(
+                "pull",
+                &id,
+                json!({"mode":"merge","prefer":side,"fingerprint":planned["fingerprint"]}),
+            )
+            .await;
+        assert_eq!(item["state"], "succeeded", "{item}");
+        assert_eq!(item["completed"][1]["prefer"], side);
+        assert_eq!(
+            std::fs::read_to_string(p.join("base.txt")).unwrap(),
+            format!("{side}\n")
+        );
+    }
+}
+#[tokio::test]
 async fn sync_diverged_push_rejected_and_fingerprint() {
     let f = Fixture::new();
     let p = f.repo("repo");

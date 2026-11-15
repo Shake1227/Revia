@@ -314,3 +314,63 @@
   margin-top: 8px;
 }
 
+.recommended {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-medium);
+  vertical-align: 1px;
+  color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent-line);
+}
+
+.freshness {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.freshnessSide {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+  box-shadow: inset 0 0 0 1px var(--line-1);
+}
+
+.freshnessSide[data-newer] {
+  box-shadow: inset 0 0 0 1px var(--accent-line);
+}
+
+.freshnessLabel {
+  font-size: var(--text-xs);
+  color: var(--text-3);
+}
+
+.freshnessTime {
+  font-size: var(--text-md);
+  font-weight: var(--weight-medium);
+  color: var(--text-1);
+}
+
+.freshnessSide[data-newer] .freshnessTime {
+  color: var(--accent);
+}
+
+.freshnessNote {
+  grid-column: 1 / -1;
+  font-size: var(--text-sm);
+  color: var(--text-2);
+}
+
+.freshnessCaveat {
+  font-size: var(--text-xs);
+  line-height: 1.6;
+  color: var(--text-3);
+}
+

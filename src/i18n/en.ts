@@ -1178,6 +1178,22 @@ export const en: Messages = {
     },
   },
 
+  divergedChoice: {
+    local: "Latest change here",
+    remote: "Latest change on the remote",
+    unknown: "Unknown",
+    newer: { local: "Your copy has the newer changes", remote: "The remote has the newer changes" } satisfies Record<PreferSide, string>,
+    same: "It is not clear which side is newer",
+    recommended: "Recommended",
+    preferLocal: "Merges the remote changes too. Where both changed the same lines, your version is kept.",
+    preferRemote: "Merges your changes too. Where both changed the same lines, the remote version is used.",
+    caveat: "Times come from each computer's clock. The time here includes changes you have not committed yet.",
+    syncNewer: (side: PreferSide, local: string, remote: string) =>
+      `${side === "local" ? "Your copy" : "The remote"} has the newer changes (here ${local}, remote ${remote})`,
+    syncMismatch: (side: PreferSide) =>
+      `Settings prefer ${side === "local" ? "the remote" : "your copy"}, but ${side === "local" ? "your copy" : "the remote"} has the newer changes`,
+  },
+
   excluded: {
     title: "Removed folders",
     subtitle: "Folders hidden from the list. Put one back to show it as a project again.",
@@ -1317,7 +1333,7 @@ export const en: Messages = {
         prefer_remote: "Merge both, take the remote on overlaps",
       } satisfies Record<DivergedPolicy, string>,
       divergedHints: {
-        stop: "Nothing is changed. Choose how to bring in the changes for each project.",
+        stop: "Nothing is changed. Choose how to bring in the changes for each project (the side with the newer changes is marked as recommended).",
         merge: "Merges the remote changes, then pushes. Stops with a conflict when both changed the same lines.",
         prefer_local:
           "Merges the remote changes, then pushes. Where both changed the same lines, your version is kept. The remote's version of those lines stays in the history but not in the files.",

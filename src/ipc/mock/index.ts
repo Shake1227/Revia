@@ -198,6 +198,10 @@ export function createMockApi(): ReviaApi {
       targets,
       ahead: !repo.git || !targets.push.target?.exists ? null : repo.ahead,
       behind: !repo.git || !targets.pull.target ? null : repo.behind,
+      divergence:
+        repo.git && targets.pull.target && repo.behind > 0 && (repo.ahead > 0 || repo.files.length > 0)
+          ? { localAt: repo.files.length > 0 ? Date.now() - 20 * 60_000 : repo.lastCommitAt, remoteAt: (repo.fetchedAt ?? Date.now()) - 60 * 60_000 }
+          : null,
       changes: changeCounts(repo),
       inProgress: repo.inProgress,
       remotes: repo.remotes,
@@ -402,13 +406,16 @@ export function createMockApi(): ReviaApi {
         blocker = baseBlocker(repo, true) ?? targetBlocker(status.targets.pull);
         const from = status.targets.pull.target;
         if (!blocker && from) {
-          steps = [{ code: "fetch" }, { code: "pull", mode: item.mode, from: { remote: from.remote, branch: from.branch }, commits: repo.behind, prefer: null }];
+          steps = [{ code: "fetch" }, { code: "pull", mode: item.mode, from: { remote: from.remote, branch: from.branch }, commits: repo.behind, prefer: item.prefer ?? null }];
           if (repo.behind === 0 && repo.incoming === 0) blocker = "nothing_to_do";
           else if (repo.ahead > 0 && repo.behind > 0 && item.mode === "ff_only") blocker = "diverged";
           else if (item.mode !== "ff_only") {
             if (repo.files.length > 0) blocker = "dirty_worktree";
             risk = item.mode === "rebase" ? "danger" : "caution";
-            if (repo.conflictOnPull) warnings.push({ code: "conflicts_likely", paths: ["src/sync/engine.rs"] });
+            if (repo.conflictOnPull) {
+              const paths = ["src/sync/engine.rs"];
+              warnings.push(item.prefer ? { code: "conflicts_resolved", prefer: item.prefer, paths } : { code: "conflicts_likely", paths });
+            }
             if (item.mode === "rebase" && repo.ahead > 0) warnings.push({ code: "rewrites_published_history", commits: 0 });
           }
         }
@@ -645,7 +652,7 @@ export function createMockApi(): ReviaApi {
 
     const status = () => statusOf(repo);
 
-    const doPull = async (mode: "ff_only" | "merge" | "rebase"): Promise<boolean> => {
+    const doPull = async (mode: "ff_only" | "merge" | "rebase", prefer: PreferSide | null = null): Promise<boolean> => {
       const from = status().targets.pull.target;
       if (!from || repo.behind === 0) return true;
       if (repo.ahead > 0 && mode === "ff_only") {
@@ -654,7 +661,7 @@ export function createMockApi(): ReviaApi {
       }
       await step("pull", 700);
       const commits = repo.behind;
-      if (repo.ahead > 0 && repo.conflictOnPull) {
+      if (repo.ahead > 0 && repo.conflictOnPull && prefer === null) {
         repo.inProgress = mode === "rebase" ? "rebase" : "merge";
         repo.incomingLabel = `${from.remote}/${from.branch}`;
         repo.conflicts = [{ path: "src/sync/engine.rs", kind: "both_modified", hasMarkers: true }];
@@ -667,7 +674,7 @@ export function createMockApi(): ReviaApi {
       repo.commits = [...fakeCommits(commits, Date.now(), commits), ...repo.commits];
       repo.headSha = repo.commits[0]!.sha;
       repo.lastCommitAt = Date.now();
-      completed.push({ code: "pull", mode, from: { remote: from.remote, branch: from.branch }, commits, prefer: null });
+      completed.push({ code: "pull", mode, from: { remote: from.remote, branch: from.branch }, commits, prefer });
       return true;
     };
 
@@ -733,7 +740,7 @@ export function createMockApi(): ReviaApi {
         const item = request.items[index]!;
         if (!(await doFetch())) return;
         if (repo.behind === 0) return done("skipped", { reason: "nothing_to_do" });
-        if (await doPull(item.mode)) done("succeeded");
+        if (await doPull(item.mode, item.prefer ?? null)) done("succeeded");
         return;
       }
       case "push": {
