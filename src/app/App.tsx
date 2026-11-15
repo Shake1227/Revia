@@ -15,6 +15,7 @@ import { GithubPage } from "../features/github/GithubPage";
 import { HistoryPage } from "../features/history/HistoryPage";
 import { OperationSheet } from "../features/operations/OperationSheet";
 import { ProjectsPage } from "../features/projects/ProjectsPage";
+import { ExcludedPage } from "../features/settings/ExcludedPage";
 import { SettingsPage } from "../features/settings/SettingsPage";
 import { CommandPalette } from "../features/shell/CommandPalette";
 import { Notices } from "../features/shell/Notices";
@@ -158,6 +159,7 @@ export function App() {
                       {view.name === "github" && <GithubPage />}
                       {view.name === "history" && <HistoryPage />}
                       {view.name === "settings" && <SettingsPage />}
+                      {view.name === "excluded" && <ExcludedPage />}
                     </motion.div>
                     </AnimatePresence>
                   </div>

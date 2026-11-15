@@ -11,7 +11,7 @@ import { useAllProjects } from "../projects/useVisibleProjects";
 import styles from "./Dock.module.css";
 
 interface NavEntry {
-  name: Exclude<View["name"], "project">;
+  name: Exclude<View["name"], "project" | "excluded">;
   label: string;
   icon: IconComponent;
   shortcut: string[];
@@ -26,7 +26,7 @@ export function Dock() {
   const projects = useAllProjects();
   const updateAvailable = useUpdateStore((state) => state.info?.available === true);
 
-  const active = view.name === "project" ? "projects" : view.name;
+  const active = view.name === "project" ? "projects" : view.name === "excluded" ? "settings" : view.name;
   const attention = countSummary(projects).attention;
   const favorites = projects.filter((project) => project.settings.favorite).slice(0, 6);
 

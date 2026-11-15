@@ -9,6 +9,7 @@ import type {
   CommitInfo,
   ConflictState,
   DiffHunk,
+  DivergedPolicy,
   DiffLine,
   FileDiff,
   GeneralSettings,
@@ -28,6 +29,7 @@ import type {
   PlanItem,
   PlanStep,
   PlanWarning,
+  PreferSide,
   Project,
   ProjectDetail,
   ProjectStatus,
@@ -47,6 +49,29 @@ const UI_STORAGE_KEY = "revia.mock.ui";
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 const clone = <T>(value: T): T => structuredClone(value);
+
+const sensitiveName = (path: string) => {
+  const base = (path.split("/").pop() ?? path).toLowerCase();
+  return (
+    base === ".env" ||
+    (base.startsWith(".env.") && base !== ".env.example") ||
+    [".pem", ".key", ".p12"].some((suffix) => base.endsWith(suffix)) ||
+    base.startsWith("id_rsa") ||
+    base.startsWith("id_ed25519") ||
+    [".npmrc", ".netrc", "credentials.json"].includes(base)
+  );
+};
+
+const preferSide = (policy: DivergedPolicy): PreferSide | null =>
+  policy === "prefer_local" ? "local" : policy === "prefer_remote" ? "remote" : null;
+
+const mockCommitMessage = (paths: string[]) => {
+  const names = paths.map((path) => path.split("/").pop() ?? path);
+  if (names.length === 1) return `Update ${names[0]}`;
+  if (names.length === 2) return `Update ${names[0]} and ${names[1]}`;
+  const rest = names.length - 2;
+  return `Update ${names[0]}, ${names[1]} and ${rest} more ${rest === 1 ? "file" : "files"}`;
+};
 
 export function createMockApi(): ReviaApi {
   const now = Date.now();
@@ -85,6 +110,7 @@ export function createMockApi(): ReviaApi {
       concurrency: 4,
       editor: null,
       safety: { allowForcePush: false, allowHardReset: false },
+      sync: { commit: true, commitMessage: "", diverged: "stop" },
     },
     ui: readStoredUi(),
   };
@@ -376,7 +402,7 @@ export function createMockApi(): ReviaApi {
         blocker = baseBlocker(repo, true) ?? targetBlocker(status.targets.pull);
         const from = status.targets.pull.target;
         if (!blocker && from) {
-          steps = [{ code: "fetch" }, { code: "pull", mode: item.mode, from: { remote: from.remote, branch: from.branch }, commits: repo.behind }];
+          steps = [{ code: "fetch" }, { code: "pull", mode: item.mode, from: { remote: from.remote, branch: from.branch }, commits: repo.behind, prefer: null }];
           if (repo.behind === 0 && repo.incoming === 0) blocker = "nothing_to_do";
           else if (repo.ahead > 0 && repo.behind > 0 && item.mode === "ff_only") blocker = "diverged";
           else if (item.mode !== "ff_only") {
@@ -419,18 +445,38 @@ export function createMockApi(): ReviaApi {
           steps = [{ code: "fetch" }];
           const from = status.targets.pull.target;
           const to = status.targets.push.target!;
-          if (repo.ahead > 0 && repo.behind > 0) {
+          const sync = settings.general.sync;
+          const diverged = repo.ahead > 0 && repo.behind > 0;
+          const merging = diverged && sync.diverged !== "stop" && from !== null;
+          const held = sync.commit ? repo.files.filter((entry) => entry.kind === "untracked" && sensitiveName(entry.path)).map((entry) => entry.path) : [];
+          const commitFiles = sync.commit ? repo.files.length - held.length : 0;
+          if (diverged && sync.diverged === "stop") {
             blocker = "diverged";
+          } else if (merging && !sync.commit && repo.files.length > 0) {
+            blocker = "dirty_worktree";
           } else {
-            if (repo.behind > 0 && from) {
-              steps.push({ code: "pull", mode: "ff_only", from: { remote: from.remote, branch: from.branch }, commits: repo.behind });
+            if (repo.behind > 0 && from && !diverged) {
+              steps.push({ code: "pull", mode: "ff_only", from: { remote: from.remote, branch: from.branch }, commits: repo.behind, prefer: null });
             }
-            if (repo.ahead > 0 || !to.exists) {
-              steps.push(pushStep(repo, to));
+            if (commitFiles > 0) steps.push({ code: "commit", files: commitFiles });
+            if (merging && from) {
+              steps.push({ code: "pull", mode: "merge", from: { remote: from.remote, branch: from.branch }, commits: repo.behind, prefer: preferSide(sync.diverged) });
+              risk = "caution";
+              if (repo.conflictOnPull) {
+                const side = preferSide(sync.diverged);
+                const paths = ["src/sync/engine.rs"];
+                warnings.push(side ? { code: "conflicts_resolved", prefer: side, paths } : { code: "conflicts_likely", paths });
+              }
+            }
+            if (repo.ahead > 0 || !to.exists || commitFiles > 0 || merging) {
+              const push = pushStep(repo, to);
+              if (push.code === "push" && to.exists) push.commits = repo.ahead + (commitFiles > 0 ? 1 : 0) + (merging ? 1 : 0);
+              steps.push(push);
               if (!to.exists) warnings.push({ code: "creates_remote_branch", to: { remote: to.remote, branch: to.branch } });
             }
           }
-          if (repo.files.length > 0) warnings.push({ code: "uncommitted_changes", files: repo.files.length });
+          if (!sync.commit && repo.files.length > 0) warnings.push({ code: "uncommitted_changes", files: repo.files.length });
+          if (held.length > 0) warnings.push({ code: "skips_sensitive_files", paths: held });
           if (repo.fetchedAt === null || Date.now() - repo.fetchedAt > 24 * 3_600_000) {
             warnings.push({ code: "stale_remote", fetchedAt: repo.fetchedAt });
           }
@@ -621,8 +667,29 @@ export function createMockApi(): ReviaApi {
       repo.commits = [...fakeCommits(commits, Date.now(), commits), ...repo.commits];
       repo.headSha = repo.commits[0]!.sha;
       repo.lastCommitAt = Date.now();
-      completed.push({ code: "pull", mode, from: { remote: from.remote, branch: from.branch }, commits });
+      completed.push({ code: "pull", mode, from: { remote: from.remote, branch: from.branch }, commits, prefer: null });
       return true;
+    };
+
+    const commitFiles = (message: string, paths: string[]) => {
+      repo.files = repo.files.filter((entry) => !paths.includes(entry.path));
+      const sha = fakeSha();
+      repo.commits.unshift({
+        sha,
+        shortSha: sha.slice(0, 7),
+        subject: message.split("\n")[0]!,
+        body: message.split("\n").slice(1).join("\n").trim(),
+        authorName: "Demo Dev",
+        at: Date.now(),
+        parents: [repo.headSha],
+        refs: [],
+        pushed: false,
+      });
+      repo.headSha = sha;
+      repo.unborn = false;
+      repo.ahead += 1;
+      repo.lastCommitAt = Date.now();
+      completed.push({ code: "commit", files: paths.length });
     };
 
     const doPush = async (force: boolean, setUpstream: boolean): Promise<boolean> => {
@@ -677,31 +744,39 @@ export function createMockApi(): ReviaApi {
       case "commit": {
         const item = request.items[index]!;
         await step("commit", 420);
-        const paths = item.paths ?? repo.files.map((entry) => entry.path);
-        repo.files = repo.files.filter((entry) => !paths.includes(entry.path));
-        const sha = fakeSha();
-        repo.commits.unshift({
-          sha,
-          shortSha: sha.slice(0, 7),
-          subject: item.message.split("\n")[0]!,
-          body: item.message.split("\n").slice(1).join("\n").trim(),
-          authorName: "Demo Dev",
-          at: Date.now(),
-          parents: [repo.headSha],
-          refs: [],
-          pushed: false,
-        });
-        repo.headSha = sha;
-        repo.unborn = false;
-        repo.ahead += 1;
-        repo.lastCommitAt = Date.now();
-        completed.push({ code: "commit", files: paths.length });
+        commitFiles(item.message, item.paths ?? repo.files.map((entry) => entry.path));
         return done("succeeded");
       }
       case "sync": {
+        const sync = settings.general.sync;
         if (!(await doFetch())) return;
-        if (repo.ahead > 0 && repo.behind > 0) return done("needs_confirmation", { reason: "diverged" });
-        if (!(await doPull("ff_only"))) return;
+        const diverged = repo.ahead > 0 && repo.behind > 0;
+        if (diverged && sync.diverged === "stop") return done("needs_confirmation", { reason: "diverged" });
+        if (!diverged && !(await doPull("ff_only"))) return;
+        const paths = repo.files.filter((entry) => !(entry.kind === "untracked" && sensitiveName(entry.path))).map((entry) => entry.path);
+        if (sync.commit && paths.length > 0) {
+          await step("commit", 420);
+          commitFiles(sync.commitMessage.trim() || mockCommitMessage(paths), paths);
+        }
+        if (repo.ahead > 0 && repo.behind > 0) {
+          const from = status().targets.pull.target;
+          if (from) {
+            await step("pull", 700);
+            const commits = repo.behind;
+            if (repo.conflictOnPull && sync.diverged === "merge") {
+              repo.inProgress = "merge";
+              repo.incomingLabel = `${from.remote}/${from.branch}`;
+              repo.conflicts = [{ path: "src/sync/engine.rs", kind: "both_modified", hasMarkers: true }];
+              repo.files = [{ path: "src/sync/engine.rs", oldPath: null, kind: "conflicted", staged: false, unstaged: true, additions: null, deletions: null, binary: false }];
+              return done("conflict");
+            }
+            repo.behind = 0;
+            repo.ahead += 1;
+            repo.commits = [...fakeCommits(commits, Date.now(), commits), ...repo.commits];
+            repo.headSha = repo.commits[0]!.sha;
+            completed.push({ code: "pull", mode: "merge", from: { remote: from.remote, branch: from.branch }, commits, prefer: preferSide(sync.diverged) });
+          }
+        }
         if (!(await doPush(false, false))) return;
         return done("succeeded");
       }
@@ -997,6 +1072,7 @@ export function createMockApi(): ReviaApi {
       const general: GeneralSettings = settings.general;
       if (patch.autoRefresh) Object.assign(general.autoRefresh, patch.autoRefresh);
       if (patch.safety) Object.assign(general.safety, patch.safety);
+      if (patch.sync) Object.assign(general.sync, patch.sync);
       if (patch.concurrency !== undefined) general.concurrency = Math.min(8, Math.max(1, patch.concurrency));
       if (patch.editor !== undefined) general.editor = patch.editor;
       return clone(settings);

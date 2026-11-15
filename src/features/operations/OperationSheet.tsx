@@ -13,6 +13,7 @@ import { Tooltip } from "../../components/Tooltip";
 import { spring } from "../../design/motion";
 import { useT } from "../../i18n";
 import type { OperationItem, OperationKind, OperationRequest, OperationSnapshot, PlanItem } from "../../ipc/types";
+import { useAppStore } from "../../stores/app";
 import { isTerminal, resolveBlocker, useOperationStore } from "../../stores/operations";
 import { useProjectStore } from "../../stores/projects";
 import { useUiStore } from "../../stores/ui";
@@ -190,6 +191,7 @@ export function OperationSheet() {
   const execute = useOperationStore((state) => state.execute);
   const cancel = useOperationStore((state) => state.cancel);
   const closeSheet = useOperationStore((state) => state.closeSheet);
+  const sync = useAppStore((state) => state.settings?.general.sync);
   const [message, setMessage] = useState("");
   const [acknowledged, setAcknowledged] = useState(false);
   const [shown, setShown] = useState(sheet);
@@ -238,7 +240,7 @@ export function OperationSheet() {
         open={open}
         onOpenChange={(next) => !next && closeSheet()}
         title={m.ops.title[kind](total)}
-        description={kind === "sync" ? m.ops.syncNote : kind === "commit" ? m.ops.commitAllNote : undefined}
+        description={kind === "sync" && sync ? m.ops.syncNote(sync.commit, sync.diverged) : kind === "commit" ? m.ops.commitAllNote : undefined}
         size="lg"
         tone={hasDanger ? "danger" : "default"}
         flush

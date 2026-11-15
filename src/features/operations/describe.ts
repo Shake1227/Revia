@@ -22,8 +22,10 @@ export function stepDetail(step: PlanStep, m: Messages, planned: boolean): strin
   switch (step.code) {
     case "fetch":
       return d.fetchOnly;
-    case "pull":
-      return planned ? d.pullPlanned(step.commits, remoteLabel(step.from)) : d.pull(step.commits, remoteLabel(step.from));
+    case "pull": {
+      const text = planned ? d.pullPlanned(step.commits, remoteLabel(step.from)) : d.pull(step.commits, remoteLabel(step.from));
+      return step.prefer ? d.withPrefer(text, step.prefer) : text;
+    }
     case "push":
       if (step.force) return d.forcePush(remoteLabel(step.to));
       if (step.createsRemoteBranch) return d.pushNew(remoteLabel(step.to));
@@ -60,6 +62,10 @@ export function warningText(warning: PlanWarning, m: Messages): string {
       return w.creates_remote_branch(remoteLabel(warning.to));
     case "conflicts_likely":
       return w.conflicts_likely(warning.paths.length);
+    case "conflicts_resolved":
+      return w.conflicts_resolved(warning.paths.length, warning.prefer);
+    case "skips_sensitive_files":
+      return w.skips_sensitive_files(warning.paths.length);
     case "rewrites_published_history":
       return w.rewrites_published_history(warning.commits);
     case "public_repo":

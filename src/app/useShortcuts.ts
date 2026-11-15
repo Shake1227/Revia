@@ -111,7 +111,7 @@ export function useShortcuts() {
       if (event.key === "Escape" && !isTyping(event.target)) {
         const projects = useProjectStore.getState();
         if (Object.keys(projects.selected).length > 0) projects.clearSelection();
-        else if (ui.view.name === "project") ui.back();
+        else if (ui.view.name === "project" || ui.view.name === "excluded") ui.back();
         return;
       }
 

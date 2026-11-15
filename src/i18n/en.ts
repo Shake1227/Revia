@@ -1,3 +1,4 @@
+import type { DivergedPolicy, PreferSide } from "../ipc/types";
 import type { Messages } from "./ja";
 
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
@@ -239,7 +240,7 @@ export const en: Messages = {
   },
 
   actionHint: {
-    sync: "Checks the remote, then pulls and pushes only what is safe",
+    sync: "Commits, pulls and pushes in one go, following your settings",
     fetch: "Gets the latest information from the remote (does not change your files)",
     pull: "Brings remote changes into your local copy",
     push: "Sends your local commits to the remote",
@@ -605,7 +606,16 @@ export const en: Messages = {
       caution: "Check first",
       danger: "Risky",
     },
-    syncNote: "Sync fetches, then only pulls and pushes when it is safe. It stops if a merge is needed.",
+    syncNote: (commit: boolean, diverged: DivergedPolicy) =>
+      [
+        commit ? "Commits uncommitted changes, then pulls and pushes." : "Pulls and pushes without touching uncommitted changes.",
+        {
+          stop: " Stops when both your copy and the remote have new commits.",
+          merge: " When both have new commits, merges them and stops if the same lines were changed.",
+          prefer_local: " When both have new commits, merges them and keeps your version where the same lines were changed.",
+          prefer_remote: " When both have new commits, merges them and takes the remote version where the same lines were changed.",
+        }[diverged],
+      ].join(""),
     state: {
       queued: "Waiting",
       running: "Working",
@@ -646,6 +656,7 @@ export const en: Messages = {
     },
     stepDetail: {
       pull: (n: number, from: string) => `Pulled ${n} from ${from}`,
+      withPrefer: (text: string, side: PreferSide) => `${text} (${side === "local" ? "overlaps keep yours" : "overlaps take the remote"})`,
       pullPlanned: (n: number, from: string) => (n > 0 ? `Pull ${n} from ${from}` : `Check ${from} and pull`),
       push: (n: number | null, to: string) => (n === null ? `Push to ${to}` : `Push ${n} to ${to}`),
       pushNew: (to: string) => `Create ${to} and push`,
@@ -700,6 +711,9 @@ export const en: Messages = {
       stale_remote: "It has been a while since the remote was last checked",
       creates_remote_branch: (to: string) => `Creates ${to} on the remote`,
       conflicts_likely: (n: number) => `Conflicts are expected in ${plural(n, "file")}`,
+      conflicts_resolved: (n: number, prefer: PreferSide) =>
+        `Overlapping changes are expected in ${plural(n, "file")}; the ${prefer === "local" ? "local" : "remote"} version will be used there`,
+      skips_sensitive_files: (n: number) => `${plural(n, "new file")} that may hold secrets will be left uncommitted`,
       rewrites_published_history: (n: number) =>
         n > 0 ? `${plural(n, "commit")} on the remote will be lost` : "May rewrite history that is already pushed",
       public_repo: "The repository will be visible to everyone",
@@ -1164,6 +1178,16 @@ export const en: Messages = {
     },
   },
 
+  excluded: {
+    title: "Removed folders",
+    subtitle: "Folders hidden from the list. Put one back to show it as a project again.",
+    search: "Filter by name or path",
+    restore: "Put back",
+    empty: "No folders have been removed",
+    emptyBody: "Choose Remove from list in a project's menu and it shows up here.",
+    noMatch: "No folders match",
+  },
+
   settings: {
     title: "Settings",
     subtitle: "Adjust the look, project discovery and how syncing behaves.",
@@ -1263,6 +1287,8 @@ export const en: Messages = {
       excluded: "Removed folders",
       excludedHint: "Folders that are hidden from the list.",
       excludedEmpty: "No folders have been removed",
+      excludedCount: (n: number) => plural(n, "folder"),
+      excludedOpen: "Open list",
       restore: "Put back",
       rules: "What counts as a project",
       rulesBody:
@@ -1278,6 +1304,26 @@ export const en: Messages = {
       autoFetchHint: "Gets the latest from the remote too. Your files are not changed.",
       concurrency: "Projects at once",
       concurrencyHint: "How many projects talk to the network at the same time in bulk actions.",
+      commit: "Commit changes when syncing",
+      commitHint: "Commits all uncommitted changes, then pulls and pushes. New files that may hold secrets, such as .env, are not committed.",
+      commitMessage: "Commit message",
+      commitMessageHint: "Leave it empty to build one from the changed file names (for example, Update README.md and 2 more files).",
+      commitMessagePlaceholder: "Automatic",
+      diverged: "When both your copy and the remote have changes",
+      divergedOptions: {
+        stop: "Stop and tell me (safe)",
+        merge: "Merge both",
+        prefer_local: "Merge both, keep mine on overlaps",
+        prefer_remote: "Merge both, take the remote on overlaps",
+      } satisfies Record<DivergedPolicy, string>,
+      divergedHints: {
+        stop: "Nothing is changed. Choose how to bring in the changes for each project.",
+        merge: "Merges the remote changes, then pushes. Stops with a conflict when both changed the same lines.",
+        prefer_local:
+          "Merges the remote changes, then pushes. Where both changed the same lines, your version is kept. The remote's version of those lines stays in the history but not in the files.",
+        prefer_remote:
+          "Merges the remote changes, then pushes. Where both changed the same lines, the remote version is used. Your version of those lines stays in the history but not in the files.",
+      } satisfies Record<DivergedPolicy, string>,
     },
     safety: {
       intro: "Actions that can lose history or files are turned off to begin with.",

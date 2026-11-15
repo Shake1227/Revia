@@ -36,7 +36,7 @@ React（`src/`）と Rust（`src-tauri/`）の境界を定める。型は [src/i
 - 操作履歴は `app_data_dir()` の `history.jsonl`。最大 2,000 件で、超えたら古いものから削除する。`params` には、分かる範囲で `branch`（操作時のブランチ）、`target`（`origin/main` 形式の操作先）、`pulled` / `pushed`（コミット数）、`files`、`commits`、`source`、`remote`、`repo`、`mode`、`sha`、`name` を入れる。
 - 認証情報は Revia では保存しない（§7）。
 - Revia が保存するファイル（`settings.json` とその `.bak`、キャッシュの `projects.json`、`history.jsonl`、複製した背景画像）は、Unix では利用者だけが読み書きできる権限で作る（ファイル 0600、Revia が作るディレクトリ 0700）。既にあるファイルも、次に書き込むときに直す。パスやリモートの URL、非公開リポジトリの名前が入るため。Windows は既定の ACL のままにする。
-- 既定値: `general.autoRefresh = { onFocus: true, intervalMinutes: 10, fetch: false }`、`concurrency = 4`、`editor = null`、`safety = { allowForcePush: false, allowHardReset: false }`。`ProjectSettings` は `{ favorite: false, includeInBatch: true, defaultRemote: null, defaultBranch: null, pullMode: "ff_only", branchTargets: {} }`。
+- 既定値: `general.autoRefresh = { onFocus: true, intervalMinutes: 10, fetch: false }`、`concurrency = 4`、`editor = null`、`safety = { allowForcePush: false, allowHardReset: false }`、`sync = { commit: true, commitMessage: "", diverged: "stop" }`（`diverged` は `"stop"` / `"merge"` / `"prefer_local"` / `"prefer_remote"`、`commitMessage` は 200 文字まで）。`ProjectSettings` は `{ favorite: false, includeInBatch: true, defaultRemote: null, defaultBranch: null, pullMode: "ff_only", branchTargets: {} }`。
 
 ## 3. プロジェクトの検出
 
@@ -182,14 +182,17 @@ Fetch / Pull / Push / Commit / 同期 / Merge / 公開 / Clone は、単体で�
 
 **commit** — `paths = null` はすべての変更（未追跡を含む）。`paths` 指定時は、そのパスの現在の作業ツリーの内容だけをコミットし、他の変更はそのまま残す。変更がなければ `skipped`。`message` が空なら `invalid_input`。`user.name` / `user.email` が未設定なら `failed`（`identity_missing`）。未解決の競合があれば `needs_confirmation`（`conflicted`）。
 
-**sync** — 安全な範囲だけを自動で行う。
+**sync** — `general.sync` の設定に従って、コミットから Pull・Push までをまとめて行う。
 
 1. 事前確認。`missing` / `not_initialized` / `no_remote` / `detached` / `in_progress` / `conflicted` → 何もせず `needs_confirmation`。Push 先か Pull 元の保存済み設定が無効 → `target_invalid`。Push 先を決められない → `target_unresolved`。Pull 元がないだけ（ブランチがまだリモートにない）の場合は止めず、Pull の手順を省く。
 2. Fetch。対象は Pull 元と Push 先のリモートだけ（無関係なリモートの障害で止めない）。
-3. Pull 元より遅れていて fast-forward できる → `merge --ff-only`。Git が未コミットの変更との衝突で拒否したら `needs_confirmation`（`dirty_worktree`）。
-4. 両方に変更がある（分岐） → ここで止めて `needs_confirmation`（`diverged`）。Merge も Rebase もしない。
-5. Push 先より先行している → 通常の Push（force なし）。Push 先のブランチがリモートにない場合は新規作成する（Git の追跡設定は変えない）。
-6. 未コミットの変更には触れない（コミットしない、退避しない）。
+3. Pull 元より遅れていて fast-forward できる → `merge --ff-only`。Git が未コミットの変更との衝突で拒否したら、`commit = true` なら 4 のあと 5 で取り込み、`false` なら `needs_confirmation`（`dirty_worktree`）。
+4. `commit = true` で変更があれば、すべての変更（未追跡を含む。`.gitignore` に従う）をコミットする。ただし、まだ追跡していないファイルのうち秘密情報らしいもの（publish の `sensitive_files` と同じ規則）はコミットせずに残し、プレビューで `skips_sensitive_files` を示す。メッセージは `commitMessage`。空なら変更したファイルから作る（`Update a.txt`、`Update a.txt and b.txt`、`Update a.txt, b.txt and 3 more files`）。`user.name` / `user.email` がなければ `failed`（`identity_missing`）。`commit = false` なら未コミットの変更には触れない。
+5. 両方に変更がある（分岐） → `diverged` に従う。`stop` は止めて `needs_confirmation`（`diverged`）。`merge` は `git merge --no-edit` で取り込み、競合したら `conflict` で止める（作業ツリーは競合状態のまま）。`prefer_local` / `prefer_remote` は `-X ours` / `-X theirs` を付けて取り込み、同じ箇所を両方が変えていたら手元 / リモートの内容を採る（ファイルの削除と変更がぶつかった場合など、Git が自動で決められない競合は `conflict` で止める）。追跡しているファイルに未コミットの変更が残っていれば、取り込まずに `needs_confirmation`（`dirty_worktree`）。Pull の手順は `mode = "merge"`、`prefer` に `"local"` / `"remote"` / `null`。
+6. Push 先より先行している → 通常の Push（force なし）。Push 先のブランチがリモートにない場合は新規作成する（Git の追跡設定は変えない）。
+7. 履歴を書き換える操作（Rebase、強制 Push、Reset）はしない。退避（stash）もしない。
+
+プレビューの手順は実行する順に並べる（分岐していなければ `fetch` → `pull` → `commit` → `push`、分岐していれば `fetch` → `commit` → `pull` → `push`）。分岐していて `diverged` が `stop` 以外なら `risk` は `caution`。取り込みで競合が見込まれる場合、`merge` は `conflicts_likely`、`prefer_local` / `prefer_remote` は `conflicts_resolved`（`prefer` とパス）を付ける。
 
 **merge** — `target` が現在のブランチでなければ先に切り替える（未コミットの変更があれば `needs_confirmation`（`dirty_worktree`））。`default` は fast-forward できればそうし、できなければ Merge コミットを作る。`no_ff` は常に Merge コミット。`ff_only` はできなければ `needs_confirmation`（`diverged`）。競合したら `conflict` で停止。既に取り込み済みなら `skipped`。
 
@@ -199,13 +202,13 @@ Fetch / Pull / Push / Commit / 同期 / Merge / 公開 / Clone は、単体で�
 
 ### プレビューの `risk`
 
-- `safe`: fetch、fast-forward の pull、通常の push、commit、clone、同期。
-- `caution`: merge、`merge` モードの pull、publish、新しいリモートブランチを作る push 以外で警告がある場合。
+- `safe`: fetch、fast-forward の pull、通常の push、commit、clone、分岐を取り込まない同期。
+- `caution`: merge、`merge` モードの pull、分岐を取り込む同期、publish、新しいリモートブランチを作る push 以外で警告がある場合。
 - `danger`: force push、`rebase` モードの pull で Push 済みコミットを書き換える場合、`sensitive_files` のある publish。
 
 ### 状態が変わっていた場合の安全策
 
-- **pull と sync**: Fetch のあと、Merge / Rebase / 早送りの直前に、ブランチ・HEAD・作業ツリーの状態が実行開始時に確かめた内容から変わっていないことを確かめ直す。変わっていたら何もせず、`fingerprint` が合わなかった場合と同じ結果にする。競合の見込み（プレビューの警告）は Fetch 後の内容では求め直せないので、実行結果で伝える。
+- **pull と sync**: Fetch のあと、Merge / Rebase / 早送りの直前に、ブランチ・HEAD・作業ツリーの状態が実行開始時に確かめた内容から変わっていないことを確かめ直す。変わっていたら何もせず、`fingerprint` が合わなかった場合と同じ結果にする。競合の見込み（プレビューの警告）は Fetch 後の内容では求め直せないので、実行結果で伝える。同期が途中でコミットした場合は、そのコミットの直後の状態を基準にして確かめる。
 - **push**: `push_rejected` で失敗したら、そのリモートを Fetch して状態を取り直す（一覧の表示が「Pull 待ち」や「分岐」に変わる）。この Fetch の失敗は結果に含めない。
 - **変更を退避して checkout**: `stash push` の前後で `refs/stash` を比べ、この操作が作った stash だけを復元と削除の対象にする。何も退避されなかった場合（`refs/stash` が変わらない）は、既存の stash に触れない。
 

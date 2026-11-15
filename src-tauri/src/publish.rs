@@ -51,6 +51,19 @@ fn check_publish(input: &Value) -> bool {
             .as_str()
             .is_none_or(|s| !s.trim().is_empty())
 }
+pub(crate) fn sensitive_name(path: &str) -> bool {
+    let base = Path::new(path)
+        .file_name()
+        .unwrap_or_default()
+        .to_string_lossy()
+        .to_ascii_lowercase();
+    base == ".env"
+        || (base.starts_with(".env.") && base != ".env.example")
+        || [".pem", ".key", ".p12"].iter().any(|s| base.ends_with(s))
+        || base.starts_with("id_rsa")
+        || base.starts_with("id_ed25519")
+        || [".npmrc", ".netrc", "credentials.json"].contains(&base.as_str())
+}
 impl Core {
     pub(crate) fn clone_plan(&self, input: &Value) -> Result<Value> {
         let dest = clone_destination(input)?;
@@ -199,18 +212,7 @@ impl Core {
         let mut large = vec![];
         let mut stamps = Vec::new();
         for path in &files {
-            let base = Path::new(path)
-                .file_name()
-                .unwrap_or_default()
-                .to_string_lossy()
-                .to_ascii_lowercase();
-            if base == ".env"
-                || (base.starts_with(".env.") && base != ".env.example")
-                || [".pem", ".key", ".p12"].iter().any(|s| base.ends_with(s))
-                || base.starts_with("id_rsa")
-                || base.starts_with("id_ed25519")
-                || [".npmrc", ".netrc", "credentials.json"].contains(&base.as_str())
-            {
+            if sensitive_name(path) {
                 sensitive.push(path.clone());
             }
             if let Ok(full) = git::relative(root, path)

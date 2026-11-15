@@ -179,7 +179,19 @@ dto!(Safety {
     allow_force_push: bool,
     allow_hard_reset: bool
 });
-dto!(GeneralSettings{auto_refresh:AutoRefresh,concurrency:u64,editor:Option<String>,safety:Safety});
+wire_enum!(DivergedPolicy {
+    Stop,
+    Merge,
+    PreferLocal,
+    PreferRemote
+});
+wire_enum!(PreferSide { Local, Remote });
+dto!(SyncSettings {
+    commit: bool,
+    commit_message: String,
+    diverged: DivergedPolicy
+});
+dto!(GeneralSettings{auto_refresh:AutoRefresh,concurrency:u64,editor:Option<String>,safety:Safety,sync:SyncSettings});
 dto!(AppSettings{roots:Vec<ScanRoot>,excluded_paths:Vec<String>,general:GeneralSettings,ui:BTreeMap<String,Value>});
 dto!(Workspace{settings:AppSettings,projects:Vec<Project>});
 dto!(ChangedFile{path:String,old_path:Option<String>,kind:FileChangeKind,staged:bool,unstaged:bool,additions:Option<u64>,deletions:Option<u64>,binary:bool});
@@ -243,6 +255,7 @@ pub enum PlanStep {
         mode: PullMode,
         from: RemoteRef,
         commits: u64,
+        prefer: Option<PreferSide>,
     },
     Push {
         to: RemoteRef,
@@ -284,16 +297,39 @@ pub enum PlanStep {
     rename_all_fields = "camelCase"
 )]
 pub enum PlanWarning {
-    UncommittedChanges { files: u64 },
-    StaleRemote { fetched_at: Option<u64> },
-    CreatesRemoteBranch { to: RemoteRef },
-    ConflictsLikely { paths: Vec<String> },
-    RewritesPublishedHistory { commits: u64 },
+    UncommittedChanges {
+        files: u64,
+    },
+    StaleRemote {
+        fetched_at: Option<u64>,
+    },
+    CreatesRemoteBranch {
+        to: RemoteRef,
+    },
+    ConflictsLikely {
+        paths: Vec<String>,
+    },
+    ConflictsResolved {
+        prefer: PreferSide,
+        paths: Vec<String>,
+    },
+    SkipsSensitiveFiles {
+        paths: Vec<String>,
+    },
+    RewritesPublishedHistory {
+        commits: u64,
+    },
     PublicRepo,
-    SensitiveFiles { paths: Vec<String> },
+    SensitiveFiles {
+        paths: Vec<String>,
+    },
     NoGitignore,
-    LargeFiles { paths: Vec<String> },
-    ManyFiles { files: u64 },
+    LargeFiles {
+        paths: Vec<String>,
+    },
+    ManyFiles {
+        files: u64,
+    },
 }
 dto!(PlanItem{item_id:String,project_id:Option<String>,executable:bool,blocker:Option<PlanBlocker>,steps:Vec<PlanStep>,risk:RiskLevel,warnings:Vec<PlanWarning>,fingerprint:Option<String>});
 dto!(OperationPlan{kind:OperationKind,items:Vec<PlanItem>});

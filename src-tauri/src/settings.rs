@@ -14,7 +14,7 @@ impl Default for Settings {
     fn default() -> Self {
         Self {
             schema_version: 1,
-            settings: json!({"roots":[],"excludedPaths":[],"general":{"autoRefresh":{"onFocus":true,"intervalMinutes":10,"fetch":false},"concurrency":4,"editor":null,"safety":{"allowForcePush":false,"allowHardReset":false}},"ui":{}}),
+            settings: json!({"roots":[],"excludedPaths":[],"general":{"autoRefresh":{"onFocus":true,"intervalMinutes":10,"fetch":false},"concurrency":4,"editor":null,"safety":{"allowForcePush":false,"allowHardReset":false},"sync":{"commit":true,"commitMessage":"","diverged":"stop"}},"ui":{}}),
             project_settings: BTreeMap::new(),
             manual_paths: vec![],
         }
@@ -180,10 +180,21 @@ pub fn validate(v: &Value) -> Result<()> {
         &g["autoRefresh"]["fetch"],
         &g["safety"]["allowForcePush"],
         &g["safety"]["allowHardReset"],
+        &g["sync"]["commit"],
     ] {
         if !b.is_boolean() {
             return Err(AppError::new("invalid_input"));
         }
+    }
+    if !g["sync"]["commitMessage"]
+        .as_str()
+        .is_some_and(|m| m.chars().count() <= 200 && !m.chars().any(char::is_control))
+        || !matches!(
+            g["sync"]["diverged"].as_str(),
+            Some("stop" | "merge" | "prefer_local" | "prefer_remote")
+        )
+    {
+        return Err(AppError::new("invalid_input"));
     }
     for r in v["roots"].as_array().unwrap() {
         if !r["path"]

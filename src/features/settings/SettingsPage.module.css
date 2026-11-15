@@ -115,3 +115,19 @@
   font-size: var(--text-sm);
   color: var(--text-1);
 }
+
+.count {
+  font-size: var(--text-sm);
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.message {
+  width: 240px;
+}
+
+@media (max-width: 760px) {
+  .message {
+    width: 180px;
+  }
+}

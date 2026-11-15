@@ -211,6 +211,13 @@ impl Core {
             );
         }
         let force = kind == "push" && item["force"] == true;
+        let (sync_commit, _, policy) = if kind == "sync" {
+            self.sync_settings()
+        } else {
+            (false, String::new(), "stop".to_string())
+        };
+        let merges = policy != "stop";
+        let mut diverged = false;
         let s = &p["status"];
         let mut blocker = None;
         let mut steps = vec![];
@@ -293,30 +300,63 @@ impl Core {
                 .await
                 .is_err()
             {
-                blocker = Some("diverged");
+                diverged = true;
+                if kind == "pull" || !merges {
+                    blocker = Some("diverged");
+                }
             }
         }
-        if kind == "sync" && changes > 0 {
+        let root = Path::new(p["path"].as_str().unwrap());
+        let (commit_files, sensitive) = if kind == "sync" && sync_commit && changes > 0 {
+            self.sync_candidates(root).await?
+        } else {
+            (0, vec![])
+        };
+        if kind == "sync" && !sync_commit && changes > 0 {
             warnings.push(json!({"code":"uncommitted_changes","files":changes}));
+        }
+        if !sensitive.is_empty() {
+            warnings.push(json!({"code":"skips_sensitive_files","paths":sensitive}));
+        }
+        if blocker.is_none() && kind == "sync" && diverged && !sync_commit && changes > 0 {
+            blocker = Some("dirty_worktree");
         }
         if matches!(kind, "fetch" | "pull" | "sync") {
             steps.push(json!({"code":"fetch"}));
         }
-        if matches!(kind, "pull" | "sync")
-            && !pull["target"].is_null()
-            && s["behind"].as_u64().unwrap_or(0) > 0
-        {
+        if kind == "pull" && !pull["target"].is_null() && s["behind"].as_u64().unwrap_or(0) > 0 {
             steps.push(pull_step(
                 &pull["target"],
-                if kind == "sync" {
-                    "ff_only"
-                } else {
-                    item["mode"].as_str().unwrap()
-                },
+                item["mode"].as_str().unwrap(),
                 s["behind"].as_u64().unwrap_or(0),
             ));
         }
-        if matches!(kind, "push" | "sync")
+        if kind == "sync" {
+            let behind = s["behind"].as_u64().unwrap_or(0);
+            let ahead = s["ahead"].as_u64().unwrap_or(0);
+            let merging = diverged && merges && !pull["target"].is_null();
+            if !pull["target"].is_null() && behind > 0 && !diverged {
+                steps.push(pull_step(&pull["target"], "ff_only", behind));
+            }
+            if commit_files > 0 {
+                steps.push(json!({"code":"commit","files":commit_files}));
+            }
+            if merging {
+                steps.push(merge_pull_step(&pull["target"], &policy, behind));
+            }
+            if !push["target"].is_null()
+                && (ahead > 0 || push["target"]["exists"] == false || commit_files > 0 || merging)
+            {
+                if push["target"]["exists"] == false {
+                    warnings.push(
+                        json!({"code":"creates_remote_branch","to":remote_ref(&push["target"])}),
+                    );
+                }
+                let commits = ahead + u64::from(commit_files > 0) + u64::from(merging);
+                steps.push(push_step(&push["target"], json!(commits), false, false));
+            }
+        }
+        if kind == "push"
             && !push["target"].is_null()
             && (s["ahead"].as_u64().unwrap_or(0) > 0 || push["target"]["exists"] == false || force)
         {
@@ -356,7 +396,6 @@ impl Core {
                 blocker = Some("nothing_to_do");
             }
         }
-        let root = Path::new(p["path"].as_str().unwrap());
         let mut rewrites = 0;
         if kind == "push" && force && push["target"]["exists"] == true {
             rewrites = status::count(
@@ -407,6 +446,20 @@ impl Core {
                 warnings.push(json!({"code":"conflicts_likely","paths":conflicts["paths"]}));
             }
         }
+        if kind == "sync" && diverged && merges && pull["target"]["exists"] == true {
+            let conflicts = self
+                .options
+                .git
+                .merge_conflicts(root, "HEAD", &status::tracking(&pull["target"]))
+                .await;
+            if conflicts["status"] == "conflicts" {
+                warnings.push(if policy == "merge" {
+                    json!({"code":"conflicts_likely","paths":conflicts["paths"]})
+                } else {
+                    json!({"code":"conflicts_resolved","prefer":prefer_side(&policy),"paths":conflicts["paths"]})
+                });
+            }
+        }
         if kind == "sync"
             && s["fetchedAt"]
                 .as_u64()
@@ -416,7 +469,9 @@ impl Core {
         }
         let risk = if force || rewrites > 0 {
             "danger"
-        } else if kind == "pull" && item["mode"] != "ff_only" {
+        } else if (kind == "pull" && item["mode"] != "ff_only")
+            || (kind == "sync" && diverged && merges)
+        {
             "caution"
         } else {
             "safe"
@@ -975,9 +1030,7 @@ impl Core {
             item["state"] = json!("cancelled");
             return Ok(());
         }
-        if matches!(kind, "pull" | "sync")
-            && !(kind == "sync" && p["status"]["targets"]["pull"]["target"].is_null())
-        {
+        if kind == "pull" {
             let target = &p["status"]["targets"]["pull"]["target"];
             if target.is_null() {
                 confirmation(item, "target_invalid");
@@ -990,11 +1043,7 @@ impl Core {
                     .local(&root, &["merge-base", "--is-ancestor", "HEAD", &reference])
                     .await
                     .is_ok();
-                let mode = if kind == "sync" {
-                    "ff_only"
-                } else {
-                    text(input, "mode")?
-                };
+                let mode = text(input, "mode")?;
                 if !ff && mode == "ff_only" {
                     confirmation(item, "diverged");
                     return Ok(());
@@ -1032,11 +1081,18 @@ impl Core {
                 }
                 self.refresh(Some(vec![id.into()])).await?;
                 p = self.project(id)?;
-            } else if kind == "pull" {
+            } else {
                 item["state"] = json!("skipped");
                 item["reason"] = json!("nothing_to_do");
                 return Ok(());
             }
+        }
+        if kind == "sync"
+            && !self
+                .execute_sync(&root, &mut p, local_before, op, index, item)
+                .await?
+        {
+            return Ok(());
         }
         if matches!(kind, "push" | "sync") {
             let t = &p["status"]["targets"]["push"]["target"];
@@ -1118,6 +1174,238 @@ impl Core {
         item["state"] = json!("succeeded");
         Ok(())
     }
+    fn sync_settings(&self) -> (bool, String, String) {
+        let state = self.state.lock().unwrap();
+        let sync = &state.settings.settings["general"]["sync"];
+        (
+            sync["commit"].as_bool().unwrap_or(false),
+            sync["commitMessage"].as_str().unwrap_or("").to_string(),
+            sync["diverged"].as_str().unwrap_or("stop").to_string(),
+        )
+    }
+    async fn sync_candidates(&self, root: &Path) -> Result<(u64, Vec<String>)> {
+        let g = &self.options.git;
+        let tracked = g
+            .local(
+                root,
+                &["status", "--porcelain=v1", "-z", "--untracked-files=no"],
+            )
+            .await?;
+        let mut records = tracked.split('\0');
+        let mut tracked_count: usize = 0;
+        while let Some(record) = records.next() {
+            if record.len() < 3 {
+                continue;
+            }
+            if record.starts_with(['R', 'C']) {
+                records.next();
+            }
+            tracked_count += 1;
+        }
+        let untracked = g
+            .local(root, &["ls-files", "--others", "--exclude-standard", "-z"])
+            .await?;
+        let added = g
+            .local(
+                root,
+                &["diff", "--cached", "--name-only", "--diff-filter=A", "-z"],
+            )
+            .await?;
+        let untracked = untracked
+            .split('\0')
+            .filter(|p| !p.is_empty())
+            .collect::<Vec<_>>();
+        let held_added = added
+            .split('\0')
+            .filter(|p| !p.is_empty() && crate::publish::sensitive_name(p))
+            .count();
+        let held_untracked = untracked
+            .iter()
+            .filter(|p| crate::publish::sensitive_name(p))
+            .count();
+        let mut sensitive = added
+            .split('\0')
+            .chain(untracked.iter().copied())
+            .filter(|p| !p.is_empty() && crate::publish::sensitive_name(p))
+            .map(str::to_owned)
+            .collect::<Vec<_>>();
+        sensitive.sort();
+        sensitive.dedup();
+        let files = tracked_count.saturating_sub(held_added) + untracked.len() - held_untracked;
+        Ok((files as u64, sensitive))
+    }
+    async fn sync_commit(
+        &self,
+        root: &Path,
+        message: &str,
+        op: &str,
+        index: usize,
+        item: &mut Value,
+    ) -> Result<Option<u64>> {
+        let g = &self.options.git;
+        let (files, sensitive) = self.sync_candidates(root).await?;
+        if files == 0 {
+            return Ok(None);
+        }
+        for k in ["user.name", "user.email"] {
+            if g.local(root, &["config", "--get", k])
+                .await
+                .ok()
+                .is_none_or(|v| v.trim().is_empty())
+            {
+                return Err(AppError::new("identity_missing"));
+            }
+        }
+        self.step_event(op, index, item, "commit");
+        g.local_write(root, &["add", "-A", "--", "."]).await?;
+        for chunk in sensitive.chunks(100) {
+            let mut args = vec!["rm", "--cached", "--quiet", "--ignore-unmatch", "--"];
+            args.extend(chunk.iter().map(String::as_str));
+            g.local_write(root, &args).await?;
+        }
+        if g.local(
+            root,
+            &[
+                "diff",
+                "--cached",
+                "--no-ext-diff",
+                "--no-textconv",
+                "--quiet",
+            ],
+        )
+        .await
+        .is_ok()
+        {
+            return Ok(None);
+        }
+        let staged = g
+            .local(root, &["diff", "--cached", "--name-only", "-z"])
+            .await?;
+        let names = staged
+            .split('\0')
+            .filter(|s| !s.is_empty())
+            .collect::<Vec<_>>();
+        let message = if message.trim().is_empty() {
+            commit_message(&names)
+        } else {
+            message.trim().to_string()
+        };
+        g.local_write(root, &["commit", "-m", &message]).await?;
+        Ok(Some(names.len() as u64))
+    }
+    async fn execute_sync(
+        &self,
+        root: &Path,
+        p: &mut Value,
+        mut guard: Option<Value>,
+        op: &str,
+        index: usize,
+        item: &mut Value,
+    ) -> Result<bool> {
+        let g = &self.options.git;
+        let id = p["id"].as_str().unwrap_or_default().to_string();
+        let (commit, message, policy) = self.sync_settings();
+        let target = p["status"]["targets"]["pull"]["target"].clone();
+        let mut pending = None;
+        if !target.is_null() {
+            let behind = p["status"]["behind"].as_u64().unwrap_or(0);
+            let reference = status::tracking(&target);
+            if behind > 0 {
+                let ff = g
+                    .local(root, &["merge-base", "--is-ancestor", "HEAD", &reference])
+                    .await
+                    .is_ok();
+                if ff {
+                    if guard.as_ref() != self.local_guard(root).await.ok().as_ref() {
+                        confirmation(item, "state_changed");
+                        return Ok(false);
+                    }
+                    self.step_event(op, index, item, "pull");
+                    match g
+                        .local_write(root, &["merge", "--ff-only", &reference])
+                        .await
+                    {
+                        Ok(_) => {
+                            completed(item, pull_step(&target, "ff_only", behind));
+                            self.refresh(Some(vec![id.clone()])).await?;
+                            *p = self.project(&id)?;
+                            guard = self.local_guard(root).await.ok();
+                        }
+                        Err(e) if e.code == "dirty_worktree" => pending = Some("dirty_worktree"),
+                        Err(e) => return Err(e),
+                    }
+                } else {
+                    pending = Some("diverged");
+                }
+            }
+        }
+        if let Some(reason) = pending
+            && (policy == "stop" || (!commit && reason == "dirty_worktree"))
+        {
+            confirmation(item, reason);
+            return Ok(false);
+        }
+        if commit && let Some(files) = self.sync_commit(root, &message, op, index, item).await? {
+            completed(item, json!({"code":"commit","files":files}));
+            self.refresh(Some(vec![id.clone()])).await?;
+            *p = self.project(&id)?;
+            guard = self.local_guard(root).await.ok();
+        }
+        if pending.is_none() {
+            return Ok(true);
+        }
+        let reference = status::tracking(&target);
+        if !g
+            .local(
+                root,
+                &["status", "--porcelain=v1", "-z", "--untracked-files=no"],
+            )
+            .await?
+            .is_empty()
+        {
+            confirmation(item, "dirty_worktree");
+            return Ok(false);
+        }
+        let behind = status::count(g, root, &format!("HEAD..{reference}"))
+            .await
+            .unwrap_or(0);
+        if behind == 0 {
+            return Ok(true);
+        }
+        if guard.as_ref() != self.local_guard(root).await.ok().as_ref() {
+            confirmation(item, "state_changed");
+            return Ok(false);
+        }
+        self.step_event(op, index, item, "pull");
+        let mut args = vec!["merge", "--no-edit"];
+        match policy.as_str() {
+            "prefer_local" => args.extend(["-X", "ours"]),
+            "prefer_remote" => args.extend(["-X", "theirs"]),
+            _ => {}
+        }
+        args.push(&reference);
+        if let Err(e) = g.local_write(root, &args).await {
+            if matches!(e.code.as_str(), "repo_locked" | "timeout") {
+                return Err(e);
+            }
+            if status::change_names(g, root)
+                .await?
+                .iter()
+                .any(|c| c["kind"] == "conflicted")
+            {
+                return Err(AppError::new("merge_conflict"));
+            }
+            if e.code == "dirty_worktree" {
+                confirmation(item, "dirty_worktree");
+                return Ok(false);
+            }
+            return Err(e);
+        }
+        completed(item, merge_pull_step(&target, &policy, behind));
+        self.refresh(Some(vec![id.clone()])).await?;
+        *p = self.project(&id)?;
+        Ok(true)
+    }
     pub(crate) fn step_event(&self, op: &str, index: usize, item: &mut Value, step: &str) {
         item["step"] = json!(step);
         item["progress"] = Value::Null;
@@ -1153,8 +1441,40 @@ fn completed(item: &mut Value, step: Value) {
 fn remote_ref(t: &Value) -> Value {
     json!({"remote":t["remote"],"branch":t["branch"]})
 }
+fn prefer_side(policy: &str) -> Value {
+    match policy {
+        "prefer_local" => json!("local"),
+        "prefer_remote" => json!("remote"),
+        _ => Value::Null,
+    }
+}
+fn merge_pull_step(t: &Value, policy: &str, commits: u64) -> Value {
+    let mut step = pull_step(t, "merge", commits);
+    step["prefer"] = prefer_side(policy);
+    step
+}
+pub fn commit_message(paths: &[&str]) -> String {
+    let name = |path: &str| {
+        Path::new(path)
+            .file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_else(|| path.to_string())
+    };
+    match paths {
+        [] => "Update files".into(),
+        [a] => format!("Update {}", name(a)),
+        [a, b] => format!("Update {} and {}", name(a), name(b)),
+        [a, b, rest @ ..] => format!(
+            "Update {}, {} and {} more {}",
+            name(a),
+            name(b),
+            rest.len(),
+            if rest.len() == 1 { "file" } else { "files" }
+        ),
+    }
+}
 fn pull_step(t: &Value, mode: &str, commits: u64) -> Value {
-    json!({"code":"pull","mode":mode,"from":remote_ref(t),"commits":commits})
+    json!({"code":"pull","mode":mode,"from":remote_ref(t),"commits":commits,"prefer":null})
 }
 fn push_step(t: &Value, commits: Value, force: bool, set_upstream: bool) -> Value {
     json!({"code":"push","to":remote_ref(t),"commits":commits,"createsRemoteBranch":t["exists"]==false,"force":force,"setUpstream":set_upstream})

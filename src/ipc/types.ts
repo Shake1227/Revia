@@ -193,6 +193,15 @@ export interface GeneralSettings {
     allowForcePush: boolean;
     allowHardReset: boolean;
   };
+  sync: SyncSettings;
+}
+
+export type DivergedPolicy = "stop" | "merge" | "prefer_local" | "prefer_remote";
+
+export interface SyncSettings {
+  commit: boolean;
+  commitMessage: string;
+  diverged: DivergedPolicy;
 }
 
 export type GeneralSettingsPatch = {
@@ -200,6 +209,7 @@ export type GeneralSettingsPatch = {
   concurrency?: number;
   editor?: string | null;
   safety?: Partial<GeneralSettings["safety"]>;
+  sync?: Partial<SyncSettings>;
 };
 
 export interface AppSettings {
@@ -479,7 +489,7 @@ export type PlanStep =
   | { code: "ignore"; patterns: number }
   | { code: "initial_commit"; files: number }
   | { code: "fetch" }
-  | { code: "pull"; mode: PullMode; from: RemoteRef; commits: number }
+  | { code: "pull"; mode: PullMode; from: RemoteRef; commits: number; prefer: PreferSide | null }
   | {
       code: "push";
       to: RemoteRef;
@@ -494,6 +504,8 @@ export type PlanStep =
   | { code: "create_repo"; nameWithOwner: string; visibility: "private" | "public" }
   | { code: "add_remote"; name: string; url: string }
   | { code: "clone"; url: string; destination: string };
+
+export type PreferSide = "local" | "remote";
 
 export type StepCode = PlanStep["code"];
 
@@ -528,6 +540,8 @@ export type PlanWarning =
   | { code: "stale_remote"; fetchedAt: Timestamp | null }
   | { code: "creates_remote_branch"; to: RemoteRef }
   | { code: "conflicts_likely"; paths: string[] }
+  | { code: "conflicts_resolved"; prefer: PreferSide; paths: string[] }
+  | { code: "skips_sensitive_files"; paths: string[] }
   | { code: "rewrites_published_history"; commits: number }
   | { code: "public_repo" }
   | { code: "sensitive_files"; paths: string[] }

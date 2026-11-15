@@ -1,4 +1,5 @@
 import type {
+  DivergedPolicy,
   ErrorCode,
   HistoryAction,
   HistoryOutcome,
@@ -6,6 +7,7 @@ import type {
   IgnoreReason,
   ItemState,
   PlanBlocker,
+  PreferSide,
   RepositoryDeletionBlocker,
   StepCode,
   SyncState,
@@ -251,7 +253,7 @@ export const ja = {
   },
 
   actionHint: {
-    sync: "リモートを確認し、安全にできる範囲でPullとPushを行います",
+    sync: "変更のコミットからPullとPushまでを、設定に従ってまとめて行います",
     fetch: "リモートの最新情報を取得します（ファイルは変更しません）",
     pull: "リモートの変更をローカルに取り込みます",
     push: "ローカルのコミットをリモートに送ります",
@@ -618,7 +620,16 @@ export const ja = {
       caution: "要確認",
       danger: "危険",
     },
-    syncNote: "同期は、Fetchのあと安全にできるPullとPushだけを行います。Mergeが必要な場合は止まります。",
+    syncNote: (commit: boolean, diverged: DivergedPolicy) =>
+      [
+        commit ? "未コミットの変更をコミットしてから、PullとPushを行います。" : "未コミットの変更には触れずに、PullとPushを行います。",
+        {
+          stop: "ローカルとリモートの両方に変更がある場合は止まります。",
+          merge: "両方に変更がある場合は取り込み、同じ箇所がぶつかったら止まります。",
+          prefer_local: "両方に変更がある場合は取り込み、同じ箇所がぶつかったら手元の内容を残します。",
+          prefer_remote: "両方に変更がある場合は取り込み、同じ箇所がぶつかったらリモートの内容を採ります。",
+        }[diverged],
+      ].join(""),
     state: {
       queued: "待機中",
       running: "処理中",
@@ -659,6 +670,7 @@ export const ja = {
     } satisfies Record<StepCode, string>,
     stepDetail: {
       pull: (n: number, from: string) => `${from} から${n}件を取り込み`,
+      withPrefer: (text: string, side: PreferSide) => `${text}（重なった部分は${side === "local" ? "手元" : "リモート"}を優先）`,
       pullPlanned: (n: number, from: string) => (n > 0 ? `${from} から${n}件をPull` : `${from} を確認してPull`),
       push: (n: number | null, to: string) => (n === null ? `${to} へPush` : `${to} へ${n}件をPush`),
       pushNew: (to: string) => `${to} を新しく作成してPush`,
@@ -713,6 +725,9 @@ export const ja = {
       stale_remote: "リモートの状態を最後に確認してから時間が経っています",
       creates_remote_branch: (to: string) => `リモートに ${to} を新しく作成します`,
       conflicts_likely: (n: number) => `${n}件のファイルで競合が起きる見込みです`,
+      conflicts_resolved: (n: number, prefer: PreferSide) =>
+        `${n}件のファイルで変更が重なる見込みです。重なった部分は${prefer === "local" ? "手元" : "リモート"}の内容にします`,
+      skips_sensitive_files: (n: number) => `秘密情報らしい新しいファイル${n}件は、コミットせずに残します`,
       rewrites_published_history: (n: number) =>
         n > 0 ? `リモートのコミット ${n}件が失われます` : "Push済みの履歴を書き換える可能性があります",
       public_repo: "誰でも閲覧できる公開リポジトリになります",
@@ -1178,6 +1193,16 @@ export const ja = {
     },
   },
 
+  excluded: {
+    title: "除外したフォルダ",
+    subtitle: "一覧に表示しないフォルダです。一覧に戻すと、もう一度プロジェクトとして表示します。",
+    search: "名前・パスで絞り込む",
+    restore: "一覧に戻す",
+    empty: "除外したフォルダはありません",
+    emptyBody: "プロジェクトのメニューから「一覧から除外」を選ぶと、ここに並びます。",
+    noMatch: "一致するフォルダはありません",
+  },
+
   settings: {
     title: "設定",
     subtitle: "見た目、プロジェクトの検出、同期のしかたを調整します。",
@@ -1277,6 +1302,8 @@ export const ja = {
       excluded: "除外したフォルダ",
       excludedHint: "一覧に表示しないフォルダです。",
       excludedEmpty: "除外したフォルダはありません",
+      excludedCount: (n: number) => `${n}件`,
+      excludedOpen: "一覧を開く",
       restore: "一覧に戻す",
       rules: "検出の条件",
       rulesBody:
@@ -1292,6 +1319,26 @@ export const ja = {
       autoFetchHint: "リモートの最新情報も取得します。ファイルは変更しません。",
       concurrency: "同時に処理する数",
       concurrencyHint: "一括操作で同時に通信するプロジェクトの数です。",
+      commit: "同期のときに変更もコミットする",
+      commitHint: "未コミットの変更をまとめてコミットしてから、PullとPushを行います。.envなど秘密情報らしい新しいファイルはコミットしません。",
+      commitMessage: "コミットメッセージ",
+      commitMessageHint: "空欄なら、変更したファイルの名前から作ります（例: Update README.md and 2 more files）。",
+      commitMessagePlaceholder: "自動で作る",
+      diverged: "ローカルとリモートの両方に変更があるとき",
+      divergedOptions: {
+        stop: "止めて知らせる（安全）",
+        merge: "両方を取り込む",
+        prefer_local: "両方を取り込み、重なりは手元を優先",
+        prefer_remote: "両方を取り込み、重なりはリモートを優先",
+      } satisfies Record<DivergedPolicy, string>,
+      divergedHints: {
+        stop: "何も変えずに止めます。プロジェクトごとに取り込み方を選んでください。",
+        merge: "リモートの変更をMergeしてからPushします。同じ箇所を両方で変えていたら、競合として止めます。",
+        prefer_local:
+          "リモートの変更をMergeしてからPushします。同じ箇所を両方で変えていた場合は、手元の内容を残します。リモート側のその部分は、履歴には残りますがファイルには反映されません。",
+        prefer_remote:
+          "リモートの変更をMergeしてからPushします。同じ箇所を両方で変えていた場合は、リモートの内容を採ります。手元のその部分は、履歴には残りますがファイルには反映されません。",
+      } satisfies Record<DivergedPolicy, string>,
     },
     safety: {
       intro: "履歴やファイルを失う可能性のある操作は、初期状態では使えないようにしています。",

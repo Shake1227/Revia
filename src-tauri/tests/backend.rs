@@ -375,6 +375,10 @@ async fn sync_fast_forward_push_dirty_and_new_branch() {
     let bare = f.remote(&p);
     let other = f.clone_repo(&bare, "other");
     let id = f.add(&p).await;
+    f.core
+        .update_general(json!({"sync":{"commit":false}}))
+        .await
+        .unwrap();
     f.write_commit(&other, "remote.txt", "remote");
     f.run(&other, &["push"]);
     std::fs::write(p.join("dirty.txt"), "keep").unwrap();
@@ -406,6 +410,215 @@ async fn sync_fast_forward_push_dirty_and_new_branch() {
         upstream
     );
     assert!(!f.run(&bare, &["rev-parse", "refs/heads/new"]).is_empty());
+}
+#[tokio::test]
+async fn sync_commits_pulls_and_pushes_in_one_go() {
+    let f = Fixture::new();
+    let p = f.repo("repo");
+    let bare = f.remote(&p);
+    let other = f.clone_repo(&bare, "other");
+    let id = f.add(&p).await;
+    f.write_commit(&other, "remote.txt", "remote");
+    f.run(&other, &["push"]);
+    f.run(&p, &["fetch"]);
+    std::fs::write(p.join("base.txt"), "changed\n").unwrap();
+    std::fs::write(p.join("local.txt"), "local\n").unwrap();
+    std::fs::write(p.join(".env"), "TOKEN=secret\n").unwrap();
+    let request = json!({"kind":"sync","items":[{"itemId":id,"projectId":id}]});
+    let plan = f.core.plan(request).await.unwrap();
+    let _: revia_lib::dto::OperationPlan = serde_json::from_value(plan.clone()).unwrap();
+    let planned = &plan["items"][0];
+    assert_eq!(planned["risk"], "safe", "{planned}");
+    let codes = planned["steps"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|s| s["code"].as_str().unwrap())
+        .collect::<Vec<_>>();
+    assert_eq!(codes, ["fetch", "pull", "commit", "push"]);
+    assert_eq!(planned["steps"][2]["files"], 2);
+    assert!(
+        planned["warnings"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|w| w["code"] == "skips_sensitive_files" && w["paths"] == json!([".env"]))
+    );
+    let item = f.op("sync", &id, json!({})).await;
+    assert_eq!(item["state"], "succeeded", "{item}");
+    let done = item["completed"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|s| s["code"].as_str().unwrap())
+        .collect::<Vec<_>>();
+    assert_eq!(done, ["fetch", "pull", "commit", "push"]);
+    assert_eq!(
+        f.run(&p, &["log", "-1", "--format=%s"]),
+        "Update base.txt and local.txt"
+    );
+    assert_eq!(
+        f.run(&bare, &["rev-parse", "main"]),
+        f.run(&p, &["rev-parse", "HEAD"])
+    );
+    assert!(p.join("remote.txt").exists());
+    assert!(p.join(".env").exists());
+    assert!(
+        f.run(&p, &["ls-files", "--others", "--exclude-standard"])
+            .contains(".env")
+    );
+    f.core
+        .update_general(json!({"sync":{"commitMessage":"Save work"}}))
+        .await
+        .unwrap();
+    std::fs::write(p.join("local.txt"), "again\n").unwrap();
+    assert_eq!(f.op("sync", &id, json!({})).await["state"], "succeeded");
+    assert_eq!(f.run(&p, &["log", "-1", "--format=%s"]), "Save work");
+    for patch in [
+        json!({"sync":{"diverged":"force"}}),
+        json!({"sync":{"commit":"yes"}}),
+        json!({"sync":{"commitMessage":"x".repeat(201)}}),
+        json!({"sync":{"commitMessage":"line\nbreak"}}),
+    ] {
+        assert_eq!(
+            f.core.update_general(patch).await.unwrap_err().code,
+            "invalid_input"
+        );
+    }
+}
+#[tokio::test]
+async fn sync_diverged_policies() {
+    for policy in ["stop", "merge", "prefer_local", "prefer_remote"] {
+        let f = Fixture::new();
+        let p = f.repo("repo");
+        let bare = f.remote(&p);
+        let other = f.clone_repo(&bare, "other");
+        let id = f.add(&p).await;
+        f.core
+            .update_general(json!({"sync":{"diverged":policy}}))
+            .await
+            .unwrap();
+        f.write_commit(&other, "base.txt", "remote\n");
+        f.run(&other, &["push"]);
+        f.write_commit(&p, "base.txt", "local\n");
+        f.run(&p, &["fetch"]);
+        let before = f.run(&p, &["rev-parse", "HEAD"]);
+        let plan = f
+            .core
+            .plan(json!({"kind":"sync","items":[{"itemId":id,"projectId":id}]}))
+            .await
+            .unwrap();
+        let _: revia_lib::dto::OperationPlan = serde_json::from_value(plan.clone()).unwrap();
+        let planned = &plan["items"][0];
+        let item = f.op("sync", &id, json!({})).await;
+        match policy {
+            "stop" => {
+                assert_eq!(planned["blocker"], "diverged");
+                assert_eq!(item["reason"], "diverged", "{item}");
+                assert_eq!(f.run(&p, &["rev-parse", "HEAD"]), before);
+            }
+            "merge" => {
+                assert_eq!(planned["risk"], "caution");
+                assert!(
+                    planned["warnings"]
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .any(|w| w["code"] == "conflicts_likely")
+                );
+                assert_eq!(item["state"], "conflict", "{item}");
+                assert_eq!(f.state(&id).await["state"], "conflicted");
+                assert_ne!(
+                    f.run(&bare, &["rev-parse", "main"]),
+                    f.run(&p, &["rev-parse", "HEAD"])
+                );
+            }
+            _ => {
+                let side = if policy == "prefer_local" {
+                    "local"
+                } else {
+                    "remote"
+                };
+                assert_eq!(planned["risk"], "caution");
+                assert!(
+                    planned["warnings"]
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .any(|w| w["code"] == "conflicts_resolved" && w["prefer"] == side)
+                );
+                let merge = planned["steps"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .find(|s| s["code"] == "pull")
+                    .unwrap();
+                assert_eq!(merge["mode"], "merge");
+                assert_eq!(merge["prefer"], side);
+                assert_eq!(item["state"], "succeeded", "{item}");
+                assert_eq!(
+                    std::fs::read_to_string(p.join("base.txt")).unwrap(),
+                    format!("{side}\n")
+                );
+                assert_eq!(
+                    f.run(&bare, &["rev-parse", "main"]),
+                    f.run(&p, &["rev-parse", "HEAD"])
+                );
+                assert_eq!(
+                    f.run(&p, &["rev-list", "--parents", "-n", "1", "HEAD"])
+                        .split(' ')
+                        .count(),
+                    3
+                );
+            }
+        }
+    }
+}
+#[tokio::test]
+async fn sync_commits_overlapping_changes_before_taking_remote_work() {
+    for policy in ["stop", "prefer_local"] {
+        let f = Fixture::new();
+        let p = f.repo("repo");
+        let bare = f.remote(&p);
+        let other = f.clone_repo(&bare, "other");
+        let id = f.add(&p).await;
+        f.core
+            .update_general(json!({"sync":{"diverged":policy}}))
+            .await
+            .unwrap();
+        f.write_commit(&other, "base.txt", "remote\n");
+        f.run(&other, &["push"]);
+        f.run(&p, &["fetch"]);
+        std::fs::write(p.join("base.txt"), "local\n").unwrap();
+        let before = f.run(&p, &["rev-parse", "HEAD"]);
+        let item = f.op("sync", &id, json!({})).await;
+        if policy == "stop" {
+            assert_eq!(item["state"], "needs_confirmation", "{item}");
+            assert_eq!(item["reason"], "dirty_worktree");
+            assert_eq!(f.run(&p, &["rev-parse", "HEAD"]), before);
+            assert_eq!(
+                std::fs::read_to_string(p.join("base.txt")).unwrap(),
+                "local\n"
+            );
+        } else {
+            assert_eq!(item["state"], "succeeded", "{item}");
+            let done = item["completed"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|s| s["code"].as_str().unwrap())
+                .collect::<Vec<_>>();
+            assert_eq!(done, ["fetch", "commit", "pull", "push"]);
+            assert_eq!(
+                std::fs::read_to_string(p.join("base.txt")).unwrap(),
+                "local\n"
+            );
+            assert_eq!(
+                f.run(&bare, &["rev-parse", "main"]),
+                f.run(&p, &["rev-parse", "HEAD"])
+            );
+        }
+    }
 }
 #[tokio::test]
 async fn sync_diverged_push_rejected_and_fingerprint() {

@@ -8,7 +8,8 @@ export type View =
   | { name: "project"; projectId: string; tab: DetailTab }
   | { name: "github" }
   | { name: "history" }
-  | { name: "settings" };
+  | { name: "settings" }
+  | { name: "excluded" };
 
 export type GlobalDialog =
   | { type: "add" }
@@ -26,7 +27,7 @@ export type GlobalDialog =
   | { type: "delete"; projectId: string }
   | { type: "merge"; projectId: string; source: string | null; target: string | null };
 
-const depth: Record<View["name"], number> = { projects: 0, project: 1, github: 2, history: 3, settings: 4 };
+const depth: Record<View["name"], number> = { projects: 0, project: 1, github: 2, history: 3, settings: 4, excluded: 5 };
 
 interface UiStore {
   view: View;
@@ -90,6 +91,10 @@ export const useUiStore = create<UiStore>((set, get) => ({
 
   back() {
     const current = get().view;
+    if (current.name === "excluded") {
+      set({ view: { name: "settings" }, direction: -1 });
+      return;
+    }
     if (current.name !== "project") return;
     set({ view: get().previous ?? { name: "projects" }, direction: -1, previous: null });
   },

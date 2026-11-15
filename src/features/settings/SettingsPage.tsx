@@ -1,8 +1,9 @@
 import clsx from "clsx";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Avatar } from "../../components/Avatar";
 import { Button, IconButton } from "../../components/Button";
 import { Icons } from "../../components/icons";
+import { TextField } from "../../components/Field";
 import { Kbd } from "../../components/Kbd";
 import { Segmented } from "../../components/Segmented";
 import { Select } from "../../components/Select";
@@ -10,7 +11,7 @@ import { Switch } from "../../components/Switch";
 import { useT } from "../../i18n";
 import { GITHUB_ACCESS_URL } from "../../app/meta";
 import { api } from "../../ipc/client";
-import type { GeneralSettingsPatch, ScanRoot } from "../../ipc/types";
+import type { DivergedPolicy, GeneralSettingsPatch, ScanRoot } from "../../ipc/types";
 import { notifyError } from "../../lib/notify";
 import { displayPath } from "../../lib/path";
 import { useAppStore, type Density, type MotionSetting, type ThemeSetting, type Typeface } from "../../stores/app";
@@ -27,6 +28,33 @@ import { AboutSection } from "./AboutSection";
 import { BackgroundSection } from "./BackgroundSection";
 import styles from "./SettingsPage.module.css";
 
+const DIVERGED: DivergedPolicy[] = ["stop", "merge", "prefer_local", "prefer_remote"];
+
+function CommitMessageField({ value, placeholder, label, onSave }: { value: string; placeholder: string; label: string; onSave: (value: string) => void }) {
+  const [draft, setDraft] = useState(value);
+  useEffect(() => setDraft(value), [value]);
+  const save = () => {
+    const next = draft.replace(/\s+/g, " ").trim().slice(0, 200);
+    setDraft(next);
+    if (next !== value) onSave(next);
+  };
+  return (
+    <TextField
+      fieldSize="sm"
+      className={styles.message}
+      value={draft}
+      placeholder={placeholder}
+      aria-label={label}
+      maxLength={200}
+      onChange={(event) => setDraft(event.target.value)}
+      onBlur={save}
+      onKeyDown={(event) => {
+        if (event.key === "Enter") event.currentTarget.blur();
+      }}
+    />
+  );
+}
+
 export function SettingsPage() {
   const m = useT();
   const t = m.settings;
@@ -37,6 +65,7 @@ export function SettingsPage() {
   const applyWorkspace = useAppStore((state) => state.applyWorkspace);
   const github = useGithubStore((state) => state.status);
   const openDialog = useUiStore((state) => state.openDialog);
+  const navigate = useUiStore((state) => state.navigate);
   const editors = useAsync(() => api.listEditors(), []);
   const [scanning, setScanning] = useState(false);
   if (!settings) return null;
@@ -213,22 +242,12 @@ export function SettingsPage() {
               </Button>
             </div>
             <Row label={t.discovery.rules} hint={t.discovery.rulesBody} />
-            <Row label={t.discovery.excluded} hint={settings.excludedPaths.length === 0 ? t.discovery.excludedEmpty : t.discovery.excludedHint} />
-            {settings.excludedPaths.length > 0 && (
-              <ul className={styles.roots}>
-                {settings.excludedPaths.map((path) => (
-                  <li key={path} className={styles.root}>
-                    <span className={styles.rootIcon}>
-                      <Icons.archive size={14} />
-                    </span>
-                    <span className={clsx("mono selectable truncate", styles.rootPath, styles.rootMain)}>{displayPath(path)}</span>
-                    <Button size="sm" variant="ghost" onClick={() => void workspaceAction(() => api.restoreExcludedPath({ path }))}>
-                      {t.discovery.restore}
-                    </Button>
-                  </li>
-                ))}
-              </ul>
-            )}
+            <Row label={t.discovery.excluded} hint={settings.excludedPaths.length === 0 ? t.discovery.excludedEmpty : t.discovery.excludedHint}>
+              <span className={styles.count}>{t.discovery.excludedCount(settings.excludedPaths.length)}</span>
+              <Button size="sm" trailing={<Icons.chevronRight size={13} />} onClick={() => navigate({ name: "excluded" })}>
+                {t.discovery.excludedOpen}
+              </Button>
+            </Row>
           </Section>
 
           <Section title={t.sections.github}>
@@ -307,6 +326,23 @@ export function SettingsPage() {
                 value={String(general.concurrency)}
                 onChange={(value) => patch({ concurrency: Number(value) })}
                 options={[1, 2, 3, 4, 6, 8].map((value) => ({ value: String(value), label: String(value) }))}
+              />
+            </Row>
+            <Row label={t.sync.commit} hint={t.sync.commitHint}>
+              <Switch checked={general.sync.commit} onChange={(commit) => patch({ sync: { commit } })} ariaLabel={t.sync.commit} />
+            </Row>
+            {general.sync.commit && (
+              <Row label={t.sync.commitMessage} hint={t.sync.commitMessageHint}>
+                <CommitMessageField value={general.sync.commitMessage} placeholder={t.sync.commitMessagePlaceholder} label={t.sync.commitMessage} onSave={(commitMessage) => patch({ sync: { commitMessage } })} />
+              </Row>
+            )}
+            <Row label={t.sync.diverged} hint={t.sync.divergedHints[general.sync.diverged]}>
+              <Select
+                size="sm"
+                value={general.sync.diverged}
+                onChange={(diverged) => patch({ sync: { diverged } })}
+                options={DIVERGED.map((value) => ({ value, label: t.sync.divergedOptions[value] }))}
+                ariaLabel={t.sync.diverged}
               />
             </Row>
           </Section>
