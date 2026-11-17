@@ -1,6 +1,6 @@
 [package]
 name = "revia"
-version = "0.2.0"
+version = "0.2.1"
 description = "Scattered projects, one calm workspace."
 authors = ["Shake_1227"]
 license = "CC-BY-NC-4.0"
