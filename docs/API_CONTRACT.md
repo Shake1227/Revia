@@ -96,7 +96,7 @@ Revia の保存設定と Git の upstream は別物として扱う。`set_branch
 - Windows で `.cmd` / `.bat` を起動するときは、`cmd.exe /C` を自分で組み立てない（引数の `&` や `|` が cmd に解釈される）。Rust 標準ライブラリのバッチファイル向けのエスケープに任せ、安全に渡せない引数はエラー（`invalid_input`）にする。
 - 失敗の分類は終了コードと標準エラーから行う: 認証（`auth_failed`）、権限（`permission_denied`。HTTP 403 を含む）、到達不能（`network_unreachable`。名前解決の失敗、接続拒否、接続タイムアウト、`Network is unreachable`、`Failed to connect` を含む）、リポジトリなし（`remote_not_found`）、non-fast-forward の拒否（`push_rejected`）、空き容量（`disk_full`）など。分類できなければ `unknown` に `detail` を付ける。
 - パス引数のうち Git に渡すだけのもの（コミット対象、差分対象など）は、最後の要素がシンボリックリンクでもよい（Git はリンクそのものを扱う）。途中の要素がシンボリックリンクの場合と、Revia 自身がファイルを読む・開く場合は拒否する。
-- 大きな入力で固まらないよう上限を設ける: `get_changes` は 5,000 件まで、未追跡ファイルの行数計算と競合マーカーの検査は 1MB まで（超える場合は `additions = null` / `hasMarkers = true`）、未追跡ファイルの差分は 512KB まで読んで `truncated = true`。
+- 大きな入力で固まらないよう上限を設ける: `get_changes` は 5,000 件まで、未追跡ファイルの行数計算は 1MB まで（超える場合は `additions = null`）。`hasMarkers` は競合の印のまとまり（§「競合の印」）がファイルに残っているかで、ファイル全体を順に読んで判定する（読めなければ `true`）、未追跡ファイルの差分は 512KB まで読んで `truncated = true`。
 - 操作が失敗したら、成功したように見せない。必ず状態を取り直して `revia:project-updated` を送る。
 
 ## 6. コマンドの意味
@@ -134,8 +134,8 @@ Revia の保存設定と Git の upstream は別物として扱う。`set_branch
 | `set_upstream` | Git の追跡設定を変更。`null` で解除 |
 | `add_remote` | 同名があれば `remote_exists`。既存のリモートを上書きしない |
 | `set_remote_url` / `rename_remote` / `remove_remote` | 既存リモートの変更。`rename_remote` と `remove_remote` は保存済みの `branchTargets` と `defaultRemote` を追随させる（削除時は該当設定を残し、`savedInvalid` で検知させる） |
-| `mark_resolved` | 指定したパスを `git add` する |
-| `continue_in_progress` | 未解決ファイルがあれば `merge_conflict`。Merge は `git commit --no-edit`、Rebase / Cherry-pick / Revert は `--continue` |
+| `mark_resolved` | 指定したパスを `git add` する。競合の印が残っているファイルがあれば何もせず `conflict_markers`（`detail` にパス） |
+| `continue_in_progress` | 未解決ファイルがあれば `merge_conflict`。ステージした内容に競合の印が残っていれば `conflict_markers`。Merge は `git commit --no-edit`、Rebase / Cherry-pick / Revert は `--continue` |
 | `abort_in_progress` | `git merge --abort` など。途中の操作がなければ `invalid_input` |
 | `rebase` | 作業ツリーが汚れていれば `dirty_worktree`。`fingerprint` が合わなければ `state_changed`。競合したら停止して `merge_conflict` を返す（中断はしない） |
 | `cherry_pick` | 同上。競合で停止したら `merge_conflict` |
@@ -180,18 +180,18 @@ Fetch / Pull / Push / Commit / 同期 / Merge / 公開 / Clone は、単体で�
 
 **pull** — Pull 元は解決済みの `targets.pull`。`prefer`（`"local"` / `"remote"`、省略は `null`）は `mode = "merge"` のときだけ指定でき、`-X ours` / `-X theirs` を付けて Merge する（重なった箇所は手元 / リモートの内容を採る）。ほかの `mode` に付けたら `invalid_input`。プレビューの Pull の手順に `prefer` を入れ、競合の見込みは `conflicts_resolved` で示す。未解決なら `needs_confirmation`（`target_unresolved` / `target_invalid`）。取得してから: 既に最新なら `skipped`。`ff_only` は fast-forward できなければ `needs_confirmation`（`diverged`）。`merge` は `git merge`、競合したら `conflict`。`rebase` は `git rebase`、競合したら `conflict`。`merge` / `rebase` は未コミットの変更があれば実行せず `needs_confirmation`（`dirty_worktree`）。Detached HEAD・途中の操作あり・未解決の競合ありも `needs_confirmation`。
 
-**push** — Push 先は `targets.push`。通常は `git push <remote> <local>:<branch>`。`setUpstream = true` で `-u`。リモート側が進んでいて拒否されたら `failed`（`push_rejected`）。`force = true` は `--force-with-lease=<branch>:<プレビュー時のリモート SHA>` のみ使い、`safety.allowForcePush = false` なら `needs_confirmation`（`feature_disabled`）。`--force` は使わない。Push するコミットがなければ `skipped`。
+**push** — Push 先は `targets.push`。通常は `git push <remote> <local>:<branch>`。`setUpstream = true` で `-u`。リモート側が進んでいて拒否されたら `failed`（`push_rejected`）。Push する内容に競合の印が残っていれば Push せず `failed`（`conflict_markers`）。`force = true` は `--force-with-lease=<branch>:<プレビュー時のリモート SHA>` のみ使い、`safety.allowForcePush = false` なら `needs_confirmation`（`feature_disabled`）。`--force` は使わない。Push するコミットがなければ `skipped`。
 
-**commit** — `paths = null` はすべての変更（未追跡を含む）。`paths` 指定時は、そのパスの現在の作業ツリーの内容だけをコミットし、他の変更はそのまま残す。変更がなければ `skipped`。`message` が空なら `invalid_input`。`user.name` / `user.email` が未設定なら `failed`（`identity_missing`）。未解決の競合があれば `needs_confirmation`（`conflicted`）。
+**commit** — `paths = null` はすべての変更（未追跡を含む）。`paths` 指定時は、そのパスの現在の作業ツリーの内容だけをコミットし、他の変更はそのまま残す。変更がなければ `skipped`。`message` が空なら `invalid_input`。`user.name` / `user.email` が未設定なら `failed`（`identity_missing`）。コミットする内容に競合の印が残っていればコミットせず `failed`（`conflict_markers`）。未解決の競合があれば `needs_confirmation`（`conflicted`）。
 
 **sync** — `general.sync` の設定に従って、コミットから Pull・Push までをまとめて行う。
 
 1. 事前確認。`missing` / `not_initialized` / `no_remote` / `detached` / `in_progress` / `conflicted` → 何もせず `needs_confirmation`。Push 先か Pull 元の保存済み設定が無効 → `target_invalid`。Push 先を決められない → `target_unresolved`。Pull 元がないだけ（ブランチがまだリモートにない）の場合は止めず、Pull の手順を省く。
 2. Fetch。対象は Pull 元と Push 先のリモートだけ（無関係なリモートの障害で止めない）。
 3. Pull 元より遅れていて fast-forward できる → `merge --ff-only`。Git が未コミットの変更との衝突で拒否したら、`commit = true` なら 4 のあと 5 で取り込み、`false` なら `needs_confirmation`（`dirty_worktree`）。
-4. `commit = true` で変更があれば、すべての変更（未追跡を含む。`.gitignore` に従う）をコミットする。ただし、まだ追跡していないファイルのうち秘密情報らしいもの（publish の `sensitive_files` と同じ規則）はコミットせずに残し、プレビューで `skips_sensitive_files` を示す。メッセージは `commitMessage`。空なら変更したファイルから作る（`Update a.txt`、`Update a.txt and b.txt`、`Update a.txt, b.txt and 3 more files`）。`user.name` / `user.email` がなければ `failed`（`identity_missing`）。`commit = false` なら未コミットの変更には触れない。
+4. `commit = true` で変更があれば、すべての変更（未追跡を含む。`.gitignore` に従う）をコミットする。ただし、まだ追跡していないファイルのうち秘密情報らしいもの（publish の `sensitive_files` と同じ規則）はコミットせずに残し、プレビューで `skips_sensitive_files` を示す。メッセージは `commitMessage`。空なら変更したファイルから作る（`Update a.txt`、`Update a.txt and b.txt`、`Update a.txt, b.txt and 3 more files`）。`user.name` / `user.email` がなければ `failed`（`identity_missing`）。競合の印が残っていればコミットせず `failed`（`conflict_markers`）。`commit = false` なら未コミットの変更には触れない。
 5. 両方に変更がある（分岐） → `diverged` に従う。`stop` は止めて `needs_confirmation`（`diverged`）。`merge` は `git merge --no-edit` で取り込み、競合したら `conflict` で止める（作業ツリーは競合状態のまま）。`prefer_local` / `prefer_remote` は `-X ours` / `-X theirs` を付けて取り込み、同じ箇所を両方が変えていたら手元 / リモートの内容を採る（ファイルの削除と変更がぶつかった場合など、Git が自動で決められない競合は `conflict` で止める）。追跡しているファイルに未コミットの変更が残っていれば、取り込まずに `needs_confirmation`（`dirty_worktree`）。Pull の手順は `mode = "merge"`、`prefer` に `"local"` / `"remote"` / `null`。
-6. Push 先より先行している → 通常の Push（force なし）。Push 先のブランチがリモートにない場合は新規作成する（Git の追跡設定は変えない）。
+6. Push 先より先行している → 通常の Push（force なし）。競合の印が残っていれば Push せず `failed`（`conflict_markers`）。Push 先のブランチがリモートにない場合は新規作成する（Git の追跡設定は変えない）。
 7. 履歴を書き換える操作（Rebase、強制 Push、Reset）はしない。退避（stash）もしない。
 
 プレビューの手順は実行する順に並べる（分岐していなければ `fetch` → `pull` → `commit` → `push`、分岐していれば `fetch` → `commit` → `pull` → `push`）。分岐していて `diverged` が `stop` 以外なら `risk` は `caution`。取り込みで競合が見込まれる場合、`merge` は `conflicts_likely`、`prefer_local` / `prefer_remote` は `conflicts_resolved`（`prefer` とパス）を付ける。
@@ -207,6 +207,15 @@ Fetch / Pull / Push / Commit / 同期 / Merge / 公開 / Clone は、単体で�
 - `safe`: fetch、fast-forward の pull、通常の push、commit、clone、分岐を取り込まない同期。
 - `caution`: merge、`merge` モードの pull、分岐を取り込む同期、publish、新しいリモートブランチを作る push 以外で警告がある場合。
 - `danger`: force push、`rebase` モードの pull で Push 済みコミットを書き換える場合、`sensitive_files` のある publish。
+
+### 競合の印
+
+競合の印は、行頭の `<<<<<<<`、（diff3 形式なら `|||||||`）、`=======`、`>>>>>>>` がこの順に並んだまとまりを指す。どれか 1 行だけ（Markdown の見出しの `=======` など）や、行の途中に書かれたものは含めない。次の操作は、比べる相手にない競合の印を持ち込む場合に実行せず `conflict_markers` を返す（`detail` に対象のパス。21 件目以降は件数だけ）。比べる相手にも同じ印があるファイル（説明のための例など）は止めない。
+
+- `mark_resolved`: 作業ツリーのファイルを HEAD と比べる。
+- `continue_in_progress`、commit（`paths = null`）、sync のコミット: ステージした内容を HEAD と比べる。
+- commit（`paths` 指定）: 指定したパスの作業ツリーの内容を HEAD と比べる。
+- push、sync の Push: HEAD を Push 先と比べる。Push 先のブランチがまだリモートにない場合は `<remote>/HEAD` と比べ、それもなければ確かめない。
 
 ### 状態が変わっていた場合の安全策
 

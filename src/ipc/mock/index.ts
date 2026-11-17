@@ -1027,8 +1027,12 @@ export function createMockApi(): ReviaApi {
       const used = new Set(settings.roots.map((root) => root.path));
       return names.map((name) => `${HOME}/${name}`).find((path) => !used.has(path)) ?? `${HOME}/Documents`;
     },
-    async openProject() {
+    async openProject({ projectId, target, relativePath }) {
       await sleep(80);
+      const repo = repos.find((item) => item.id === projectId);
+      if (!repo || target !== "editor" || !relativePath) return;
+      repo.conflicts = repo.conflicts.map((conflict) => (conflict.path === relativePath ? { ...conflict, hasMarkers: false } : conflict));
+      touch(repo);
     },
     async openUrl() {
       await sleep(80);
@@ -1376,6 +1380,8 @@ export function createMockApi(): ReviaApi {
     async markResolved({ projectId, paths }) {
       const repo = find(projectId);
       await sleep(150);
+      const marked = repo.conflicts.filter((conflict) => paths.includes(conflict.path) && conflict.hasMarkers).map((conflict) => conflict.path);
+      if (marked.length > 0) throw appError("conflict_markers", "競合の印が残っています", marked.join("\n"));
       repo.conflicts = repo.conflicts.filter((conflict) => !paths.includes(conflict.path));
       repo.files = repo.files.map((item) => (paths.includes(item.path) ? { ...item, kind: "modified", staged: true, unstaged: false, additions: 6, deletions: 2 } : item));
       touch(repo);

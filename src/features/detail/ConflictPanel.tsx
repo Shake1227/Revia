@@ -5,6 +5,7 @@ import { Icons } from "../../components/icons";
 import { Spinner } from "../../components/Spinner";
 import { useT } from "../../i18n";
 import { api } from "../../ipc/client";
+import { toAppError } from "../../ipc/errors";
 import type { Project } from "../../ipc/types";
 import { notifyError } from "../../lib/notify";
 import { confirm } from "../../stores/confirm";
@@ -22,18 +23,23 @@ export function ConflictPanel({ project, signature }: { project: Project; signat
   const state = conflicts.data;
   const operation = state?.operation ? m.inProgress[state.operation] : project.status?.inProgress ? m.inProgress[project.status.inProgress] : m.inProgress.merge;
 
-  const resolve = async (path: string, hasMarkers: boolean) => {
-    if (hasMarkers) {
-      const result = await confirm({
-        title: t.markersConfirm.title,
-        body: t.markersConfirm.body,
-        facts: [{ label: m.confirm.impact, value: <span className="mono selectable">{path}</span> }],
-        level: "caution",
-        confirmLabel: t.markersConfirm.submit,
-      });
-      if (!result.confirmed) return;
+  const resolve = async (path: string) => {
+    setPending(path);
+    try {
+      await api.markResolved({ projectId, paths: [path] });
+    } catch (error) {
+      if (toAppError(error).code === "conflict_markers") {
+        toast.warning(t.markersBlocked.title, {
+          description: t.markersBlocked.body,
+          action: { label: t.openInEditor, run: () => void openIn(projectId, "editor", path) },
+        });
+      } else {
+        notifyError(error);
+      }
+    } finally {
+      setPending(null);
+      conflicts.reload();
     }
-    await run(path, () => api.markResolved({ projectId, paths: [path] }));
   };
 
   const run = async (key: string, action: () => Promise<unknown>, done?: string) => {
@@ -97,7 +103,7 @@ export function ConflictPanel({ project, signature }: { project: Project; signat
                 <Button
                   size="sm"
                   loading={pending === file.path}
-                  onClick={() => void resolve(file.path, file.hasMarkers)}
+                  onClick={() => void resolve(file.path)}
                 >
                   {t.markResolved}
                 </Button>

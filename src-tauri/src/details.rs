@@ -130,17 +130,8 @@ impl Core {
             let path = &r[3..];
             let has = git::relative(root, path)
                 .ok()
-                .and_then(|p| {
-                    use std::io::Read;
-                    let mut b = vec![];
-                    std::fs::File::open(p)
-                        .ok()?
-                        .take(1024 * 1024 + 1)
-                        .read_to_end(&mut b)
-                        .ok()?;
-                    Some(b)
-                })
-                .is_none_or(|b| b.len() > 1024 * 1024 || b.windows(7).any(|w| w == b"<<<<<<<"));
+                .and_then(|p| crate::markers::file(&p).ok())
+                .unwrap_or(true);
             files.push(json!({"path":path,"kind":kind,"hasMarkers":has}));
         }
         let incoming = if let Some(kind) = operation.as_deref() {

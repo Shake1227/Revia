@@ -2,7 +2,7 @@ pub use crate::dto::{OperationKind, OperationRequest};
 use crate::{
     core::Core,
     error::{AppError, Result},
-    git, status,
+    git, markers, status,
 };
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
@@ -897,6 +897,8 @@ impl Core {
                     item["reason"] = json!("nothing_to_do");
                     return Ok(());
                 }
+                let names = paths.iter().filter_map(Value::as_str).collect::<Vec<_>>();
+                markers::check(markers::worktree(g, &root, &names, Some(head)).await?)?;
                 let mut args = vec![
                     "commit".into(),
                     "--only".into(),
@@ -925,6 +927,9 @@ impl Core {
                     item["reason"] = json!("nothing_to_do");
                     return Ok(());
                 }
+                markers::check(
+                    markers::introduced(g, &root, markers::Source::Index, Some("HEAD")).await?,
+                )?;
                 g.local_write(&root, &["commit", "-m", text(input, "message")?])
                     .await?;
             }
@@ -1141,6 +1146,21 @@ impl Core {
                 for r in [remote, branch, local] {
                     g.reference(&root, r).await?;
                 }
+                let base = if t["exists"] == false {
+                    let fallback = format!("refs/remotes/{remote}/HEAD");
+                    g.local(&root, &["rev-parse", "--verify", "-q", &fallback])
+                        .await
+                        .ok()
+                        .map(|_| fallback)
+                } else {
+                    Some(status::tracking(t))
+                };
+                if let Some(base) = base {
+                    markers::check(
+                        markers::introduced(g, &root, markers::Source::Tree("HEAD"), Some(&base))
+                            .await?,
+                    )?;
+                }
                 let mut args = vec!["push".into(), "--progress".into()];
                 let set_upstream = kind == "push" && input["setUpstream"] == true;
                 if set_upstream {
@@ -1307,6 +1327,7 @@ impl Core {
             .split('\0')
             .filter(|s| !s.is_empty())
             .collect::<Vec<_>>();
+        markers::check(markers::introduced(g, root, markers::Source::Index, Some("HEAD")).await?)?;
         let message = if message.trim().is_empty() {
             commit_message(&names)
         } else {

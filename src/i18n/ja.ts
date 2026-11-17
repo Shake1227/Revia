@@ -440,10 +440,9 @@ export const ja = {
       openInEditor: "エディタで開く",
       markResolved: "解決済みにする",
       markersRemain: "競合の印（<<<<<<<）が残っています",
-      markersConfirm: {
+      markersBlocked: {
         title: "競合の印が残っています",
-        body: "このファイルには <<<<<<< や >>>>>>> の行がまだあります。このまま解決済みにすると、印が入ったままコミットされます。",
-        submit: "このまま解決済みにする",
+        body: "<<<<<<< から >>>>>>> までの行がまだあります。エディタで残す内容を選んで印を消し、保存してから解決済みにしてください。",
       },
       resolvedAll: "すべて解決しました。続行できます。",
       continue: (operation: string) => `${operation}を完了`,
@@ -1502,6 +1501,7 @@ export const ja = {
     invalid_ref_name: { title: "この名前は使えません", hint: "空白や ~ ^ : ? * [ \\ は使えません。" },
     dirty_worktree: { title: "未コミットの変更があります", hint: "先にコミットするか、変更を退避してください。" },
     merge_conflict: { title: "コンフリクトが発生しました", hint: "競合したファイルを修正してから続行してください。" },
+    conflict_markers: { title: "競合の印が残っているため止めました", hint: "<<<<<<< から >>>>>>> までの行が残ったファイルは、コミットや Push をしません。エディタで印を消して保存してから、もう一度実行してください。" },
     operation_in_progress: { title: "別の操作が途中です", hint: "MergeやRebaseを完了または中止してください。" },
     nothing_to_commit: { title: "対象の変更がありません", hint: "" },
     detached_head: { title: "ブランチが選択されていません", hint: "ブランチに切り替えてから操作してください。" },

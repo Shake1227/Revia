@@ -366,19 +366,21 @@ impl Git {
         }
         c
     }
-    pub async fn local(&self, path: &Path, args: &[&str]) -> Result<String> {
+    pub async fn raw(&self, path: &Path, args: &[&str]) -> Result<std::process::Output> {
         let args = args.iter().map(|s| s.to_string()).collect::<Vec<_>>();
-        let output =
-            tokio::time::timeout(Duration::from_secs(60), self.command(path, &args).output())
-                .await
-                .map_err(|_| AppError::new("timeout"))?
-                .map_err(|e| {
-                    if e.kind() == std::io::ErrorKind::NotFound {
-                        AppError::new("git_not_installed")
-                    } else {
-                        e.into()
-                    }
-                })?;
+        tokio::time::timeout(Duration::from_secs(60), self.command(path, &args).output())
+            .await
+            .map_err(|_| AppError::new("timeout"))?
+            .map_err(|e| {
+                if e.kind() == std::io::ErrorKind::NotFound {
+                    AppError::new("git_not_installed")
+                } else {
+                    e.into()
+                }
+            })
+    }
+    pub async fn local(&self, path: &Path, args: &[&str]) -> Result<String> {
+        let output = self.raw(path, args).await?;
         if output.status.success() {
             Ok(String::from_utf8_lossy(&output.stdout).into())
         } else {
@@ -569,7 +571,7 @@ fn relative_impl(root: &Path, value: &str, allow_leaf: bool) -> Result<PathBuf> 
     }
     Ok(next)
 }
-fn classify(s: &str) -> AppError {
+pub(crate) fn classify(s: &str) -> AppError {
     let l = s.to_lowercase();
     let code = if (l.contains(".lock") && l.contains("file exists"))
         || l.contains("another git process seems to be running")

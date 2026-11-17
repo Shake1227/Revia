@@ -8,6 +8,7 @@ pub mod git;
 mod github;
 mod history;
 pub mod ignore;
+pub mod markers;
 mod mutations;
 pub mod oauth;
 pub mod operations;

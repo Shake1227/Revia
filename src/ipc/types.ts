@@ -23,6 +23,7 @@ export type ErrorCode =
   | "invalid_ref_name"
   | "dirty_worktree"
   | "merge_conflict"
+  | "conflict_markers"
   | "operation_in_progress"
   | "nothing_to_commit"
   | "detached_head"

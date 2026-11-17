@@ -2340,7 +2340,7 @@ async fn preview_warnings_for_published_rebase_force_push_and_conflicting_pull()
 }
 #[cfg(unix)]
 #[tokio::test]
-async fn unavailable_merge_tree_is_unknown_and_large_conflict_is_conservative() {
+async fn unavailable_merge_tree_is_unknown_and_large_conflict_is_scanned_fully() {
     let f = Fixture::new();
     let p = f.repo("repo");
     let id = f.add(&p).await;
@@ -2361,6 +2361,13 @@ async fn unavailable_merge_tree_is_unknown_and_large_conflict_is_conservative() 
     let preview = f.core.preview_merge(&id, "feature", "main").await.unwrap();
     f.op("merge",&id,json!({"source":"feature","target":"main","mode":"default","fingerprint":preview["fingerprint"]})).await;
     std::fs::write(p.join("base.txt"), vec![b'x'; 1024 * 1024 + 1]).unwrap();
+    assert_eq!(
+        f.core.conflicts(&id).await.unwrap()["files"][0]["hasMarkers"],
+        false
+    );
+    let mut large = vec![b'x'; 2 * 1024 * 1024];
+    large.extend_from_slice(b"\n<<<<<<< HEAD\nmain\n=======\nfeature\n>>>>>>> feature\n");
+    std::fs::write(p.join("base.txt"), large).unwrap();
     assert_eq!(
         f.core.conflicts(&id).await.unwrap()["files"][0]["hasMarkers"],
         true
@@ -4315,4 +4322,125 @@ async fn repository_lock_is_reported_and_retained() {
     let error = f.git.local_write(&p, &["add", "-A"]).await.unwrap_err();
     assert_eq!(error.code, "repo_locked");
     assert_eq!(std::fs::read(&lock).unwrap(), b"other process");
+}
+const CONFLICT_BLOCK: &str =
+    "start\n<<<<<<< HEAD\nlocal\n=======\nremote\n>>>>>>> refs/remotes/origin/main\nend\n";
+#[tokio::test]
+async fn sync_conflict_cannot_be_finished_or_pushed_with_markers_left() {
+    let f = Fixture::new();
+    let p = f.repo("repo");
+    let bare = f.remote(&p);
+    let other = f.clone_repo(&bare, "other");
+    let id = f.add(&p).await;
+    f.core
+        .update_general(json!({"sync":{"diverged":"merge","commit":true}}))
+        .await
+        .unwrap();
+    f.write_commit(&other, "base.txt", "remote\n");
+    f.run(&other, &["push"]);
+    let remote_before = f.run(&bare, &["rev-parse", "main"]);
+    std::fs::write(p.join("base.txt"), "local\n").unwrap();
+    let item = f.op("sync", &id, json!({})).await;
+    assert_eq!(item["state"], "conflict", "{item}");
+    assert_eq!(
+        f.core.conflicts(&id).await.unwrap()["files"][0]["hasMarkers"],
+        true
+    );
+    let error = f
+        .core
+        .mutate(&id, "mark_resolved", json!({"paths":["base.txt"]}))
+        .await
+        .unwrap_err();
+    assert_eq!(error.code, "conflict_markers");
+    assert_eq!(error.detail.as_deref(), Some("base.txt"));
+    assert_eq!(
+        f.core.conflicts(&id).await.unwrap()["files"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+    f.run(&p, &["add", "--", "base.txt"]);
+    assert_eq!(
+        f.core
+            .mutate(&id, "continue_in_progress", json!({}))
+            .await
+            .unwrap_err()
+            .code,
+        "conflict_markers"
+    );
+    assert_eq!(f.state(&id).await["inProgress"], "merge");
+    assert_eq!(f.run(&bare, &["rev-parse", "main"]), remote_before);
+    std::fs::write(p.join("base.txt"), "local\nremote\n").unwrap();
+    f.core
+        .mutate(&id, "mark_resolved", json!({"paths":["base.txt"]}))
+        .await
+        .unwrap();
+    f.core
+        .mutate(&id, "continue_in_progress", json!({}))
+        .await
+        .unwrap();
+    assert!(f.state(&id).await["inProgress"].is_null());
+    let item = f.op("sync", &id, json!({})).await;
+    assert_eq!(item["state"], "succeeded", "{item}");
+    assert_eq!(f.run(&bare, &["show", "main:base.txt"]), "local\nremote");
+}
+#[tokio::test]
+async fn commits_and_pushes_stop_only_for_new_conflict_markers() {
+    let f = Fixture::new();
+    let p = f.repo("repo");
+    let bare = f.remote(&p);
+    let id = f.add(&p).await;
+    f.write_commit(
+        &p,
+        "guide.md",
+        &format!("Example\n=======\n\n{CONFLICT_BLOCK}"),
+    );
+    f.run(&p, &["push"]);
+    std::fs::write(
+        p.join("guide.md"),
+        format!("Example v2\n=======\n\n{CONFLICT_BLOCK}"),
+    )
+    .unwrap();
+    std::fs::write(
+        p.join("notes.md"),
+        "Title\n=======\n<<<<<<< not a conflict\n",
+    )
+    .unwrap();
+    let item = f.op("commit", &id, json!({"message":"docs"})).await;
+    assert_eq!(item["state"], "succeeded", "{item}");
+    let push = json!({"force":false,"setUpstream":false});
+    let item = f.op("push", &id, push.clone()).await;
+    assert_eq!(item["state"], "succeeded", "{item}");
+    std::fs::write(p.join("base.txt"), CONFLICT_BLOCK).unwrap();
+    let item = f.op("commit", &id, json!({"message":"broken"})).await;
+    assert_eq!(item["state"], "failed", "{item}");
+    assert_eq!(item["error"]["code"], "conflict_markers");
+    assert_eq!(item["error"]["detail"], "base.txt");
+    let item = f
+        .op(
+            "commit",
+            &id,
+            json!({"message":"broken","paths":["base.txt"]}),
+        )
+        .await;
+    assert_eq!(item["error"]["code"], "conflict_markers", "{item}");
+    f.core
+        .update_general(json!({"sync":{"commit":true}}))
+        .await
+        .unwrap();
+    let item = f.op("sync", &id, json!({})).await;
+    assert_eq!(item["error"]["code"], "conflict_markers", "{item}");
+    f.run(&p, &["commit", "-am", "outside"]);
+    let remote_before = f.run(&bare, &["rev-parse", "main"]);
+    let item = f.op("push", &id, push.clone()).await;
+    assert_eq!(item["error"]["code"], "conflict_markers", "{item}");
+    let item = f.op("sync", &id, json!({})).await;
+    assert_eq!(item["error"]["code"], "conflict_markers", "{item}");
+    assert_eq!(f.run(&bare, &["rev-parse", "main"]), remote_before);
+    std::fs::write(p.join("base.txt"), "fixed\n").unwrap();
+    f.run(&p, &["commit", "-am", "fix"]);
+    let item = f.op("push", &id, push).await;
+    assert_eq!(item["state"], "succeeded", "{item}");
+    assert_eq!(f.run(&bare, &["show", "main:base.txt"]), "fixed");
 }

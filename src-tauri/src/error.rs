@@ -32,6 +32,7 @@ impl AppError {
                 "remote_not_found" => "Remote not found",
                 "disk_full" => "Disk is full",
                 "merge_conflict" => "Merge conflict",
+                "conflict_markers" => "Conflict markers remain in files",
                 "dirty_worktree" => "Uncommitted changes exist",
                 "identity_missing" => "Commit identity is missing",
                 "not_fast_forward" => "Cannot fast-forward",

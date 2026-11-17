@@ -426,10 +426,9 @@ export const en: Messages = {
       openInEditor: "Open in editor",
       markResolved: "Mark resolved",
       markersRemain: "Conflict markers (<<<<<<<) are still in the file",
-      markersConfirm: {
+      markersBlocked: {
         title: "Conflict markers are still in the file",
-        body: "This file still has lines with <<<<<<< or >>>>>>>. If you mark it resolved now, the markers will be committed as they are.",
-        submit: "Mark resolved anyway",
+        body: "Lines from <<<<<<< to >>>>>>> are still there. Choose what to keep in your editor, remove the markers, save, and then mark the file resolved.",
       },
       resolvedAll: "Everything is resolved. You can continue.",
       continue: (operation: string) => `Finish ${operation.toLowerCase()}`,
@@ -1487,6 +1486,7 @@ export const en: Messages = {
     invalid_ref_name: { title: "This name cannot be used", hint: "Spaces and ~ ^ : ? * [ \\ are not allowed." },
     dirty_worktree: { title: "There are uncommitted changes", hint: "Commit or stash them first." },
     merge_conflict: { title: "There is a conflict", hint: "Fix the conflicting files, then continue." },
+    conflict_markers: { title: "Stopped because conflict markers remain", hint: "Files that still have lines from <<<<<<< to >>>>>>> are not committed or pushed. Remove the markers in your editor, save, and try again." },
     operation_in_progress: { title: "Another operation is in progress", hint: "Finish or abort the merge or rebase first." },
     nothing_to_commit: { title: "There are no changes to work with", hint: "" },
     detached_head: { title: "No branch is checked out", hint: "Switch to a branch first." },

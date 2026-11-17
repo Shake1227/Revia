@@ -2,7 +2,7 @@ use crate::{
     core::Core,
     details::resolve,
     error::{AppError, Result},
-    git, settings, status,
+    git, markers, settings, status,
 };
 use serde_json::{Value, json};
 use std::path::Path;
@@ -425,11 +425,14 @@ impl Core {
                     return Err(AppError::new("invalid_input"));
                 }
                 let mut args = vec!["add".into(), "--".into()];
+                let mut names = vec![];
                 for p in paths {
                     let path = p.as_str().ok_or_else(|| AppError::new("invalid_path"))?;
                     git::git_path(root, path)?;
                     args.push(path.into());
+                    names.push(path);
                 }
+                markers::check(markers::worktree(g, root, &names, Some("HEAD")).await?)?;
                 g.write(root, &args).await?;
             }
             "continue_in_progress" | "abort_in_progress" => {
@@ -443,6 +446,11 @@ impl Core {
                         .is_empty()
                 {
                     return Err(AppError::new("merge_conflict"));
+                }
+                if action == "continue_in_progress" {
+                    markers::check(
+                        markers::introduced(g, root, markers::Source::Index, Some("HEAD")).await?,
+                    )?;
                 }
                 let sub = match kind {
                     "cherry_pick" => "cherry-pick",
