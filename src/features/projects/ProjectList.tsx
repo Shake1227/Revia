@@ -1,6 +1,6 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { AnimatePresence, motion } from "motion/react";
-import { useCallback, useEffect, useMemo, useRef, type KeyboardEvent, type RefObject } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { listItemVariants, spring } from "../../design/motion";
 import { useT } from "../../i18n";
 import type { Project } from "../../ipc/types";
@@ -13,13 +13,13 @@ import { ProjectRow } from "./ProjectRow";
 interface ProjectListProps {
   projects: Project[];
   compact: boolean;
-  scrollRef: RefObject<HTMLDivElement | null>;
+  scrollElement: HTMLDivElement | null;
 }
 
 const VIRTUALIZE_FROM = 70;
 const GAP = 2;
 
-export function ProjectList({ projects, compact, scrollRef }: ProjectListProps) {
+export function ProjectList({ projects, compact, scrollElement }: ProjectListProps) {
   const m = useT();
   const orderedIds = useMemo(() => projects.map((project) => project.id), [projects]);
   const selectionMode = useProjectStore((state) => Object.keys(state.selected).length > 0);
@@ -27,14 +27,26 @@ export function ProjectList({ projects, compact, scrollRef }: ProjectListProps) 
   const listRef = useRef<HTMLDivElement>(null);
   const rowHeight = compact ? 40 : 54;
   const virtual = projects.length > VIRTUALIZE_FROM;
+  const [scrollMargin, setScrollMargin] = useState(0);
+
+  useLayoutEffect(() => {
+    const list = listRef.current;
+    if (!virtual || !list || !scrollElement) return;
+    const next = Math.round(list.getBoundingClientRect().top - scrollElement.getBoundingClientRect().top + scrollElement.scrollTop);
+    setScrollMargin((current) => (current === next ? current : next));
+  }, [virtual, scrollElement]);
 
   const virtualizer = useVirtualizer({
     count: virtual ? projects.length : 0,
-    getScrollElement: () => scrollRef.current,
+    getScrollElement: () => scrollElement,
     estimateSize: () => rowHeight + GAP,
     overscan: 10,
-    scrollMargin: listRef.current?.offsetTop ?? 0,
+    scrollMargin,
   });
+
+  useEffect(() => {
+    if (virtual) virtualizer.measure();
+  }, [virtual, rowHeight, virtualizer]);
 
   const moveCursor = useCallback(
     (delta: number, extend: boolean) => {

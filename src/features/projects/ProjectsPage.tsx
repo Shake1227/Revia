@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button, IconButton } from "../../components/Button";
 import { EmptyState } from "../../components/EmptyState";
 import { SearchField } from "../../components/Field";
@@ -48,7 +48,7 @@ export function ProjectsPage() {
   const lastRefreshedAt = useProjectStore((state) => state.lastRefreshedAt);
   const scans = useProjectStore((state) => state.scans);
   const prepare = useOperationStore((state) => state.prepare);
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const [scrollElement, setScrollElement] = useState<HTMLDivElement | null>(null);
   const visibleIds = useMemo(() => visible.map((project) => project.id), [visible]);
 
   const scanning = Object.values(scans);
@@ -173,7 +173,7 @@ export function ProjectsPage() {
       />
 
       {all.length > 0 && <SummaryStrip counts={counts} />}
-      <div className={`${styles.scroll} rv-sheet`} ref={scrollRef}>
+      <div className={`${styles.scroll} rv-sheet`} ref={setScrollElement}>
         <div className={styles.content}>
           {all.length === 0 && roots === 0 && scanning.length === 0 ? (
             <Onboarding />
@@ -196,7 +196,7 @@ export function ProjectsPage() {
               action={filtered ? <Button onClick={clearFilters}>{m.projects.noMatch.action}</Button> : undefined}
             />
           ) : (
-            <ProjectList projects={visible} compact={ui.density === "compact"} scrollRef={scrollRef} />
+            <ProjectList projects={visible} compact={ui.density === "compact"} scrollElement={scrollElement} />
           )}
         </div>
       </div>
