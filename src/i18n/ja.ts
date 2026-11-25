@@ -947,6 +947,8 @@ export const ja = {
         linux: "sudo apt install gh",
       },
       recheck: "再確認",
+      offline: "GitHubに接続できないため、ログインの状態を確かめられませんでした。",
+      offlineSignedIn: "GitHubに接続できません。ログインはそのままで、前回のアカウントを表示しています。",
     },
     login: {
       title: "GitHubにログイン",

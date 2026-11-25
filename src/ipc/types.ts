@@ -616,6 +616,7 @@ export interface GithubAccount {
 export interface GithubStatus {
   cliInstalled: boolean;
   authenticated: boolean;
+  reachable: boolean;
   account: GithubAccount | null;
   gitProtocol: "https" | "ssh" | null;
   missingScopes: string[];

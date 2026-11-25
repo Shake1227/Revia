@@ -2420,6 +2420,10 @@ printf '%s\n' "$*" >> "$MOCK_ROOT/calls"
 case "$1 $2" in
 'auth status')
   if [ -e "$MOCK_ROOT/logged-out" ]; then echo 'not logged into github.com' >&2; exit 1; fi
+  if [ -e "$MOCK_ROOT/offline" ] || [ -e "$MOCK_ROOT/revoked" ]; then
+    printf 'github.com\n  X Failed to log in to github.com account mock (keyring)\n  - Active account: true\n  - The token in keyring is invalid.\n' >&2
+    exit 1
+  fi
   if [ -e "$MOCK_ROOT/scopes-missing" ]; then echo "Token scopes: 'read:org'" >&2; else echo "Token scopes: 'repo', 'read:org'" >&2; fi
   ;;
 'config get') if [ -e "$MOCK_ROOT/ssh" ]; then echo ssh; else echo https; fi ;;
@@ -2436,7 +2440,10 @@ case "$1 $2" in
   if [ -e "$MOCK_ROOT/repo-exists" ]; then echo 'repository already exists ghp_hidden' >&2; exit 1; fi
   touch "$MOCK_ROOT/created"
   ;;
-'api user') echo '{"login":"mock","name":"Mock User","avatar_url":"https://github.com/avatar"}' ;;
+'api user')
+  if [ -e "$MOCK_ROOT/offline" ]; then echo 'Get "https://api.github.com/user": dial tcp: lookup api.github.com: no such host' >&2; exit 1; fi
+  if [ -e "$MOCK_ROOT/revoked" ]; then echo 'gh: Bad credentials (HTTP 401)' >&2; exit 1; fi
+  echo '{"login":"mock","name":"Mock User","avatar_url":"https://github.com/avatar"}' ;;
 'api --paginate')
   if [ -e "$MOCK_ROOT/rate-limit" ]; then echo 'HTTP 403 secondary rate limit ghp_hidden' >&2; exit 1; fi
   case "$3" in
@@ -2507,6 +2514,30 @@ esac
             request["items"][0]["fingerprint"] = plan["items"][0]["fingerprint"].clone();
             request
         }
+    }
+    #[tokio::test]
+    async fn github_status_keeps_the_account_when_github_cannot_be_reached() {
+        let g = GhFixture::new();
+        let online = g.f.core.github_status(true).await.unwrap();
+        assert_eq!(online["authenticated"], true);
+        assert_eq!(online["reachable"], true);
+        g.flag("offline");
+        let offline = g.f.core.github_status(true).await.unwrap();
+        assert_eq!(offline["authenticated"], true, "{offline}");
+        assert_eq!(offline["reachable"], false);
+        assert_eq!(offline["account"]["login"], "mock");
+        assert!(offline["account"]["name"].is_null());
+        assert_eq!(offline["tokenStorage"], "keyring");
+        assert!(g.f.core.github_status(false).await.unwrap()["reachable"] == false);
+        std::fs::remove_file(g.f.temp.path().join("offline")).unwrap();
+        let back = g.f.core.github_status(false).await.unwrap();
+        assert_eq!(back["reachable"], true);
+        assert_eq!(back["account"]["name"], "Mock User");
+        g.flag("revoked");
+        let revoked = g.f.core.github_status(true).await.unwrap();
+        assert_eq!(revoked["authenticated"], false, "{revoked}");
+        assert_eq!(revoked["reachable"], true);
+        assert!(revoked["account"].is_null());
     }
     #[tokio::test]
     async fn github_status_absent_signed_out_scopes_and_cache() {

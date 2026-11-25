@@ -76,6 +76,10 @@ const mockCommitMessage = (paths: string[]) => {
 export function createMockApi(): ReviaApi {
   const now = Date.now();
   const repos = seedRepos(now);
+  const bulk = Math.min(500, Math.max(0, Number(new URLSearchParams(window.location.search).get("projects") ?? 0) - repos.length));
+  for (let index = 0; index < bulk; index++) {
+    repos.push(makeRepo({ name: `bulk-${String(index + 1).padStart(3, "0")}`, ahead: index % 7 === 0 ? 1 : 0, behind: index % 11 === 0 ? 2 : 0, age: (index + 1) * 3_600_000 }, now));
+  }
   let githubRepos = seedGithubRepos(now, repos);
   let history = seedHistory(now, repos);
   let updateInfo: UpdateInfo | null = null;
@@ -87,11 +91,12 @@ export function createMockApi(): ReviaApi {
   const cliMode = new URLSearchParams(window.location.search).get("gh");
   let github: GithubStatus =
     cliMode === "missing" || cliMode === "fail"
-      ? { cliInstalled: false, authenticated: false, account: null, gitProtocol: null, missingScopes: [], tokenStorage: null }
+      ? { cliInstalled: false, authenticated: false, reachable: true, account: null, gitProtocol: null, missingScopes: [], tokenStorage: null }
       : {
           cliInstalled: true,
           authenticated: true,
-          account: { login: ACCOUNT, name: "Demo Dev", avatarUrl: null },
+          reachable: cliMode !== "offline",
+          account: { login: ACCOUNT, name: cliMode === "offline" ? null : "Demo Dev", avatarUrl: null },
           gitProtocol: "https",
           missingScopes: [],
           tokenStorage: "keyring",
@@ -1549,7 +1554,7 @@ export function createMockApi(): ReviaApi {
         emit("revia:github-login", { loginId: login.id, kind: "code", userCode: "7C3F-A91D", verificationUrl: "https://github.com/login/device" });
         await sleep(5200);
         if (login.cancelled) return;
-        github = { cliInstalled: true, authenticated: true, account: { login: ACCOUNT, name: "Demo Dev", avatarUrl: null }, gitProtocol: "https", missingScopes: [], tokenStorage: "keyring" };
+        github = { cliInstalled: true, authenticated: true, reachable: true, account: { login: ACCOUNT, name: "Demo Dev", avatarUrl: null }, gitProtocol: "https", missingScopes: [], tokenStorage: "keyring" };
         if (scopes) deleteScopeGranted = true;
         pendingLogin = null;
         emit("revia:github-login", { loginId: login.id, kind: "succeeded", status: github });
@@ -1565,7 +1570,7 @@ export function createMockApi(): ReviaApi {
     },
     async githubLogout() {
       await sleep(300);
-      github = { cliInstalled: true, authenticated: false, account: null, gitProtocol: null, missingScopes: [], tokenStorage: null };
+      github = { cliInstalled: true, authenticated: false, reachable: true, account: null, gitProtocol: null, missingScopes: [], tokenStorage: null };
       return clone(github);
     },
     async githubListRepos() {

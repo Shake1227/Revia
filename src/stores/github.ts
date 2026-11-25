@@ -13,6 +13,7 @@ export type LoginFlow =
 interface GithubStore {
   status: GithubStatus | null;
   statusLoading: boolean;
+  statusError: AppError | null;
   repos: GithubRepo[] | null;
   reposLoading: boolean;
   reposError: AppError | null;
@@ -34,6 +35,7 @@ interface GithubStore {
 export const useGithubStore = create<GithubStore>((set, get) => ({
   status: null,
   statusLoading: false,
+  statusError: null,
   repos: null,
   reposLoading: false,
   reposError: null,
@@ -47,13 +49,13 @@ export const useGithubStore = create<GithubStore>((set, get) => ({
     try {
       const previous = get().status;
       const status = await api.githubStatus({ refresh });
-      set({ status });
+      set({ status, statusError: null });
       if (previous?.authenticated && !status.authenticated) {
         set({ repos: null, owners: null });
         toast.warning(t().github.account.expired);
       }
-    } catch {
-      set({ status: { cliInstalled: true, authenticated: false, account: null, gitProtocol: null, missingScopes: [], tokenStorage: null } });
+    } catch (error) {
+      set({ statusError: toAppError(error) });
     } finally {
       set({ statusLoading: false });
     }

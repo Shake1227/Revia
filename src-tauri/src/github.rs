@@ -101,39 +101,57 @@ impl Core {
         {
             return Ok(status.clone());
         }
-        let mut status = json!({"cliInstalled":installed(self),"authenticated":false,"account":null,"gitProtocol":null,"missingScopes":[],"tokenStorage":null});
+        let mut status = json!({"cliInstalled":installed(self),"authenticated":false,"reachable":true,"account":null,"gitProtocol":null,"missingScopes":[],"tokenStorage":null});
         if installed(self) {
-            match self
+            let (text, scopes_known) = match self
                 .gh(&["auth", "status", "--hostname", "github.com"])
                 .await
             {
-                Ok((out, err)) => {
-                    status["authenticated"] = json!(true);
-                    let user = self.gh(&["api", "user"]).await?;
-                    let u: Value = safe_value(serde_json::from_str(&user.0)?);
-                    status["account"] =
-                        json!({"login":u["login"],"name":u["name"],"avatarUrl":u["avatar_url"]});
-                    if let Ok((p, _)) = self
-                        .gh(&["config", "get", "git_protocol", "--host", "github.com"])
-                        .await
-                        && matches!(p.trim(), "ssh" | "https")
-                    {
-                        status["gitProtocol"] = json!(p.trim());
-                    }
-                    let scopes = format!("{out}\n{err}");
-                    status["tokenStorage"] = json!(token_storage(&scopes));
-                    let repo_scope = has_repo_scope(&scopes);
-                    if !repo_scope {
-                        status["missingScopes"] = json!(["repo"]);
-                    }
-                }
+                Ok((out, err)) => (format!("{out}\n{err}"), true),
                 Err(e)
                     if matches!(
                         e.code.as_str(),
                         "not_authenticated" | "unknown" | "auth_failed"
-                    ) => {}
+                    ) =>
+                {
+                    (e.detail.clone().unwrap_or_default(), false)
+                }
                 Err(e) => return Err(e),
+            };
+            if scopes_known || stored_account(&text).is_some() {
+                match self.gh(&["api", "user"]).await {
+                    Ok((user, _)) => {
+                        let u: Value = safe_value(serde_json::from_str(&user)?);
+                        status["authenticated"] = json!(true);
+                        status["account"] = json!({"login":u["login"],"name":u["name"],"avatarUrl":u["avatar_url"]});
+                        if scopes_known && !has_repo_scope(&text) {
+                            status["missingScopes"] = json!(["repo"]);
+                        }
+                    }
+                    Err(e) if matches!(e.code.as_str(), "auth_failed" | "gh_not_installed") => {}
+                    Err(_) => {
+                        if let Some(login) = stored_account(&text) {
+                            status["authenticated"] = json!(true);
+                            status["reachable"] = json!(false);
+                            status["account"] = json!({"login":login,"name":null,"avatarUrl":null});
+                        }
+                    }
+                }
             }
+            if status["authenticated"] == true {
+                status["tokenStorage"] = json!(token_storage(&text));
+                if let Ok((p, _)) = self
+                    .gh(&["config", "get", "git_protocol", "--host", "github.com"])
+                    .await
+                    && matches!(p.trim(), "ssh" | "https")
+                {
+                    status["gitProtocol"] = json!(p.trim());
+                }
+            }
+        }
+        if status["reachable"] == false {
+            self.github.lock().unwrap().status = None;
+            return Ok(status);
         }
         self.github.lock().unwrap().status = Some((Instant::now(), status.clone()));
         Ok(status)
@@ -517,10 +535,35 @@ mod tests {
     }
 }
 
+fn stored_account(text: &str) -> Option<String> {
+    let mut login = None;
+    for line in text.lines() {
+        if let Some(rest) = line
+            .split_once("Logged in to github.com account ")
+            .or_else(|| line.split_once("Failed to log in to github.com account "))
+            .map(|(_, rest)| rest)
+        {
+            login = rest
+                .split_whitespace()
+                .next()
+                .filter(|s| {
+                    !s.is_empty()
+                        && s.bytes()
+                            .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
+                })
+                .map(str::to_owned);
+        } else if line.contains("Active account: true") {
+            return login;
+        }
+    }
+    None
+}
 fn token_storage(text: &str) -> Option<&'static str> {
     let mut storage = None;
     for line in text.lines() {
-        if line.contains("Logged in to github.com account ") {
+        if line.contains("Logged in to github.com account ")
+            || line.contains("Failed to log in to github.com account ")
+        {
             storage = line
                 .rsplit_once('(')
                 .and_then(|(_, s)| s.split_once(')'))
@@ -538,7 +581,22 @@ fn token_storage(text: &str) -> Option<&'static str> {
 }
 #[cfg(test)]
 mod storage_tests {
-    use super::token_storage;
+    use super::{stored_account, token_storage};
+    #[test]
+    fn stored_account_survives_a_failed_check() {
+        let offline = "github.com\n  X Failed to log in to github.com account Shake1227 (keyring)\n  - Active account: true\n  - The token in keyring is invalid.\n\n  X Failed to log in to github.com account other (keyring)\n  - Active account: false\n";
+        assert_eq!(stored_account(offline).as_deref(), Some("Shake1227"));
+        assert_eq!(token_storage(offline), Some("keyring"));
+        let second = "  ✓ Logged in to github.com account first (keyring)\n  - Active account: false\n  ✓ Logged in to github.com account second-user (/home/u/.config/gh/hosts.yml)\n  - Active account: true\n";
+        assert_eq!(stored_account(second).as_deref(), Some("second-user"));
+        for none in [
+            "You are not logged into any GitHub hosts. To log in, run: gh auth login",
+            "  X Failed to log in to github.com using token (GH_TOKEN)\n  - Active account: true\n",
+            "",
+        ] {
+            assert_eq!(stored_account(none), None);
+        }
+    }
     #[test]
     fn active_account_storage() {
         for (source, expected) in [

@@ -45,6 +45,7 @@ export function GithubPage() {
   const reposError = useGithubStore((state) => state.reposError);
   const loadRepos = useGithubStore((state) => state.loadRepos);
   const loadStatus = useGithubStore((state) => state.loadStatus);
+  const statusError = useGithubStore((state) => state.statusError);
   const openDialog = useUiStore((state) => state.openDialog);
   const openProject = useUiStore((state) => state.openProject);
   const projects = useAllProjects();
@@ -56,6 +57,21 @@ export function GithubPage() {
   useEffect(() => {
     if (authenticated && repos === null) void loadRepos();
   }, [authenticated, repos, loadRepos]);
+
+  useEffect(() => {
+    const current = useGithubStore.getState();
+    if (current.statusError || current.status?.reachable === false) void loadStatus(true);
+  }, [loadStatus]);
+
+  const offlineNote =
+    statusError || status?.reachable === false ? (
+      <Note tone="warning" className={styles.offline}>
+        <span>{status?.authenticated ? t.connect.offlineSignedIn : t.connect.offline}</span>
+        <Button size="sm" variant="ghost" loading={statusLoading} onClick={() => void loadStatus(true)}>
+          {t.connect.recheck}
+        </Button>
+      </Note>
+    ) : null;
 
   const visible = useMemo(() => {
     const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
@@ -73,7 +89,7 @@ export function GithubPage() {
     return (
       <div className={styles.page}>
         <PageHeader title={t.title} subtitle={t.subtitle} />
-        <div className={styles.center}>{statusLoading && <Spinner size={18} />}</div>
+        <div className={styles.center}>{statusLoading ? <Spinner size={18} /> : offlineNote}</div>
       </div>
     );
   }
@@ -84,6 +100,7 @@ export function GithubPage() {
         <PageHeader title={t.title} subtitle={t.subtitle} />
         <div className={styles.center}>
           <div className={styles.connect}>
+            {offlineNote}
             <span className={styles.connectIcon}>
               <Icons.github size={26} />
             </span>
@@ -169,6 +186,7 @@ export function GithubPage() {
             options={(["all", "local", "remoteOnly"] as const).map((value) => ({ value, label: t.repos.filter[value] }))}
           />
         </div>
+        {offlineNote}
         {status.missingScopes.length > 0 && <Note tone="warning">{t.account.missingScopes(status.missingScopes.join(", "))}</Note>}
         {reposError && <ErrorNote error={reposError} actions={<Button size="sm" onClick={() => void loadRepos(true)}>{m.common.retry}</Button>} />}
         {repos === null && reposLoading ? (

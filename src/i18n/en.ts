@@ -933,6 +933,8 @@ export const en: Messages = {
         linux: "sudo apt install gh",
       },
       recheck: "Check again",
+      offline: "GitHub could not be reached, so the sign-in could not be checked.",
+      offlineSignedIn: "GitHub cannot be reached. You are still signed in; the last known account is shown.",
     },
     login: {
       title: "Sign in to GitHub",

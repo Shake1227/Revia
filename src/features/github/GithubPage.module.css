@@ -213,3 +213,18 @@
     display: none;
   }
 }
+
+.offline {
+  align-items: center;
+  margin-bottom: 10px;
+  text-align: left;
+}
+
+.offline > div {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+

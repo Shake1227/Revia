@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { api } from "../ipc/client";
 import { useAppStore } from "../stores/app";
+import { useGithubStore } from "../stores/github";
 import { useOperationStore } from "../stores/operations";
 import { useProjectStore } from "../stores/projects";
 
@@ -31,6 +32,8 @@ export function useAutoRefresh(enabled: boolean) {
       if (Date.now() - lastRun.current < FOCUS_THROTTLE) return;
       lastRun.current = Date.now();
       void useProjectStore.getState().refresh().catch(() => undefined);
+      const github = useGithubStore.getState();
+      if (github.statusError || github.status?.reachable === false) void github.loadStatus(true);
     };
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
